@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "OneNav - 书签管理与快速搜索",
+  "version": "0.1.0",
+  "description": "…",
+  "homepage_url": "https://onenav.h06i.com",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "OneNav 书签管理",
+    "default_popup": "popup.html"
+  },
+  "permissions": ["bookmarks", "storage", "tabs", "activeTab", "contextMenus"],
+  "host_permissions": ["https://onenav.h06i.com/*", "http://localhost:*/*"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data: blob: https://www.google.com https://*.google.com https://*.gstatic.com https://icons.duckduckgo.com; connect-src 'self' https://onenav.h06i.com wss://onenav.h06i.com http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*;"
+  },
+  "icons": {
+    "16": "favicon-16x16.png",
+    "32": "favicon-32x32.png",
+    "128": "pwa-192x192.png",
+    "256": "pwa-512x512.png",
+    "512": "pwa-512x512.png"
+  }
+}

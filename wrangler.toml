@@ -1,0 +1,11 @@
+main = ".open-next/worker.js"
+name = "onenav"
+compatibility_date = "2025-03-25"
+compatibility_flags = ["nodejs_compat"]
+[assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
+[[d1_databases]]
+binding = "onenav"
+database_name = "onenav"
+database_id = "c28549a3-789d-4a6d-8980-4aba69c2c30f"
