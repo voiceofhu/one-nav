@@ -1,5 +1,6 @@
 'use client';
 
+import BuildInfo from '@/components/build-info';
 import { ThemeProvider as NextThemesProvider } from 'next-themes';
 import * as React from 'react';
 
@@ -12,6 +13,7 @@ export function ThemeProvider({ children }: React.PropsWithChildren) {
       disableTransitionOnChange
     >
       {children}
+      <BuildInfo />
     </NextThemesProvider>
   );
 }

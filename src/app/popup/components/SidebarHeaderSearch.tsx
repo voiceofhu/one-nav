@@ -1,7 +1,6 @@
 'use client';
 
-import { Input } from '@/components/ui/input';
-import { SidebarHeader } from '@/components/ui/sidebar';
+import { SidebarHeader, SidebarInput } from '@/components/ui/sidebar';
 
 type Props = {
   query: string;
@@ -11,16 +10,17 @@ type Props = {
 
 export function SidebarHeaderSearch({ query, onQueryChange, onSearch }: Props) {
   return (
-    <SidebarHeader className="p-3">
-      <div className="text-sm font-semibold">Bookmarks</div>
-      <div className="mt-2">
-        <Input
-          placeholder="Search bookmarks…"
+    <SidebarHeader className="p-">
+      <div className="text-3xl font-bold">OneNav</div>
+      <div className="mt-1">
+        <SidebarInput
+          placeholder="搜索书签..."
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') onSearch();
           }}
+          className="h-8 text-[12px]"
         />
       </div>
     </SidebarHeader>

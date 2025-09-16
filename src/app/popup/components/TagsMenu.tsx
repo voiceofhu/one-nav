@@ -19,8 +19,8 @@ type Props = {
 
 export function TagsMenu({ tags, activeName, onSelect }: Props) {
   return (
-    <SidebarGroup>
-      <SidebarGroupLabel>标签</SidebarGroupLabel>
+    <SidebarGroup className="p-0">
+      <SidebarGroupLabel className="text-xs">标签</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
           {tags.map((t) => (
@@ -28,6 +28,7 @@ export function TagsMenu({ tags, activeName, onSelect }: Props) {
               <SidebarMenuButton
                 isActive={activeName === t.name}
                 onClick={() => onSelect(t)}
+                size="sm"
                 className="data-[active=true]:bg-primary data-[active=true]:text-white data-[active=true]:[&>svg]:text-white"
               >
                 <span>#{t.name}</span>

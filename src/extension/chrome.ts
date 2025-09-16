@@ -59,6 +59,18 @@ interface ChromeBookmarksAPI {
   getTree(callback: (results: BookmarkNode[]) => void): void;
   getChildren(id: string, callback: (results: BookmarkNode[]) => void): void;
   getSubTree(id: string, callback: (results: BookmarkNode[]) => void): void;
+  move(
+    id: string,
+    destination: { parentId?: string; index?: number },
+    callback: (node: BookmarkNode) => void,
+  ): void;
+  removeTree(id: string, callback: () => void): void;
+  update(
+    id: string,
+    changes: { title?: string; url?: string },
+    callback: (node: BookmarkNode) => void,
+  ): void;
+  remove(id: string, callback: () => void): void;
 }
 
 interface ChromeTabsAPI {
@@ -116,6 +128,24 @@ export async function addBookmark(input: {
   });
 }
 
+export async function addFolder(input: { title: string; parentId?: string }) {
+  const ch = ensureChrome();
+  const bookmarks = ch?.bookmarks;
+  if (!bookmarks?.create) throw new Error('Chrome bookmarks API unavailable');
+  return new Promise<BookmarkNode>((resolve, reject) => {
+    try {
+      bookmarks.create(
+        { title: input.title, parentId: input.parentId },
+        (node) => {
+          resolve(node);
+        },
+      );
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
 export async function getRecent(limit = 10) {
   const ch = ensureChrome();
   const bookmarks = ch?.bookmarks;
@@ -155,6 +185,81 @@ export async function getChildren(id: string) {
     bookmarks.getChildren(id, (nodes) =>
       resolve(nodes as unknown as BookmarkNode[]),
     );
+  });
+}
+
+export async function getNode(id: string) {
+  const ch = ensureChrome();
+  const bookmarks = ch?.bookmarks;
+  if (!bookmarks?.getSubTree)
+    return undefined as unknown as BookmarkNode | undefined;
+  return new Promise<BookmarkNode | undefined>((resolve) => {
+    bookmarks.getSubTree(id, (nodes) =>
+      resolve((nodes?.[0] as unknown as BookmarkNode) || undefined),
+    );
+  });
+}
+
+export async function updateBookmark(
+  id: string,
+  changes: { title?: string; url?: string },
+) {
+  const ch = ensureChrome();
+  const bookmarks = ch?.bookmarks;
+  if (!bookmarks?.update) throw new Error('Chrome bookmarks API unavailable');
+  return new Promise<BookmarkNode>((resolve, reject) => {
+    try {
+      bookmarks.update(id, changes, (node) => resolve(node));
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
+export async function removeBookmark(id: string) {
+  const ch = ensureChrome();
+  const bookmarks = ch?.bookmarks;
+  if (!bookmarks?.remove) throw new Error('Chrome bookmarks API unavailable');
+  return new Promise<void>((resolve, reject) => {
+    try {
+      bookmarks.remove(id, () => resolve());
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
+export async function updateFolder(id: string, changes: { title: string }) {
+  return updateBookmark(id, { title: changes.title });
+}
+
+export async function removeFolder(id: string) {
+  const ch = ensureChrome();
+  const bookmarks = ch?.bookmarks;
+  if (!bookmarks?.removeTree)
+    throw new Error('Chrome bookmarks API unavailable');
+  return new Promise<void>((resolve, reject) => {
+    try {
+      bookmarks.removeTree(id, () => resolve());
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
+export async function moveNode(
+  id: string,
+  destination: { parentId?: string; index?: number },
+) {
+  const ch = ensureChrome();
+  const bookmarks = ch?.bookmarks;
+  if (!bookmarks?.move) throw new Error('Chrome bookmarks API unavailable');
+  return new Promise<BookmarkNode>((resolve, reject) => {
+    try {
+      bookmarks.move(id, destination, (node) => resolve(node));
+    } catch (e) {
+      reject(e);
+    }
   });
 }
 

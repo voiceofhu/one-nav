@@ -15,10 +15,20 @@ import {
   isMock,
   searchBookmarks,
 } from '@/extension/data';
-import { useEffect, useMemo, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import {
+  type CSSProperties,
+  Suspense,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { toast } from 'sonner';
 
-import { AddBookmarkFooter } from './components/AddBookmarkFooter';
+import { AddBookmarkDialog } from './components/AddBookmarkDialog';
+import { AddFolderDialog } from './components/AddFolderDialog';
+import { AddFolderFooter } from './components/AddFolderFooter';
+import { BookmarkDetail } from './components/BookmarkDetail';
 import { BookmarksList } from './components/BookmarksList';
 import { CategoriesMenu, type Category } from './components/CategoriesMenu';
 import { ContentHeader } from './components/ContentHeader';
@@ -38,34 +48,13 @@ export default function Popup() {
     | { type: 'tag'; name: string }
   >({ type: 'recents' });
   const [loading, setLoading] = useState(true);
+  const [openNewFolder, setOpenNewFolder] = useState(false);
+  const [openNewBookmark, setOpenNewBookmark] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
 
   const list = useMemo(() => results ?? [], [results]);
-  async function handleAddCurrent() {
-    try {
-      const tab = await getActiveTab();
-      if (!tab?.url) {
-        toast.error('无法获取当前标签页');
-        return;
-      }
-      const title = tab.title || new URL(tab.url).hostname;
-      await addBookmark({
-        title,
-        url: tab.url,
-        parentId:
-          activeView.type === 'category'
-            ? activeView.category.folderId
-            : undefined,
-      });
-      toast.success('已添加到书签');
-      // reload for current view
-      const tree = await getTree();
-      const items = await loadByView(activeView, tree);
-      setResults(items);
-    } catch (e: unknown) {
-      if (e instanceof Error) toast.error(e.message);
-      else toast.error('添加失败');
-    }
-  }
+  // 添加书签改为在 Dialog 中完成
 
   async function handleSearch(e?: React.FormEvent) {
     if (e) e.preventDefault();
@@ -78,6 +67,15 @@ export default function Popup() {
   }
 
   const isExt = isExtensionContext() || isMock;
+
+  function handleAddFolder() {
+    setOpenNewFolder(true);
+  }
+
+  function clearDetail() {
+    // 返回列表：移除 id 参数
+    router.replace(pathname);
+  }
 
   // Build categories/tags once
   useEffect(() => {
@@ -122,67 +120,188 @@ export default function Popup() {
   const displayItems = (results ?? list) as BookmarkNode[];
 
   return (
-    <SidebarProvider className="min-w-[680px] max-w-[820px] h-[600px] max-h-[600px] border">
-      <Sidebar collapsible="none" variant="floating">
-        <SidebarHeaderSearch
-          query={query}
-          onQueryChange={(v) => setQuery(v)}
-          onSearch={() => void handleSearch()}
-        />
-        <SidebarContent className="px-2">
-          <QuickMenu
-            active={
-              activeView.type === 'all' || activeView.type === 'recents'
-                ? activeView.type
-                : null
-            }
-            onSelectAll={() => {
-              setQuery('');
-              setResults(null);
-              setActiveView({ type: 'all' });
-            }}
-            onSelectRecents={() => {
-              setQuery('');
-              setResults(null);
-              setActiveView({ type: 'recents' });
-            }}
+    <SidebarProvider
+      className="relative overflow-hidden w-[615px]  h-[560px]  "
+      style={
+        { ['--sidebar-width' as unknown as string]: '170px' } as CSSProperties
+      }
+    >
+      <div className="pointer-events-none absolute inset-0">
+        <div className="animated-gradient" />
+      </div>
+      <div className="relative z-10 flex h-full w-full">
+        <Sidebar
+          collapsible="none"
+          variant="floating"
+          className="border-r bg-background/40 backdrop-blur pointer-events-auto"
+        >
+          <SidebarHeaderSearch
+            query={query}
+            onQueryChange={(v) => setQuery(v)}
+            onSearch={() => void handleSearch()}
           />
-          <CategoriesMenu
-            categories={categories}
-            activeId={
-              activeView.type === 'category'
-                ? activeView.category.id
-                : undefined
-            }
-            onSelect={(c) => {
-              setQuery('');
-              setResults(null);
-              setActiveView({ type: 'category', category: c });
-            }}
+          <SidebarContent className="px-2 text-[12px]">
+            <QuickMenu
+              active={
+                activeView.type === 'all' || activeView.type === 'recents'
+                  ? activeView.type
+                  : null
+              }
+              onSelectAll={() => {
+                setQuery('');
+                setResults(null);
+                setActiveView({ type: 'all' });
+                clearDetail();
+              }}
+              onSelectRecents={() => {
+                setQuery('');
+                setResults(null);
+                setActiveView({ type: 'recents' });
+                clearDetail();
+              }}
+            />
+            <CategoriesMenu
+              categories={categories}
+              activeId={
+                activeView.type === 'category'
+                  ? activeView.category.id
+                  : undefined
+              }
+              onSelect={(c) => {
+                setQuery('');
+                setResults(null);
+                setActiveView({ type: 'category', category: c });
+                clearDetail();
+              }}
+              onMutate={async () => {
+                const tree = await getTree();
+                const cats = buildCategories(tree);
+                setCategories(cats);
+                // If current active category no longer exists, fallback to recents
+                if (
+                  activeView.type === 'category' &&
+                  !cats.find((x) => x.id === activeView.category.id)
+                ) {
+                  setActiveView({ type: 'recents' });
+                  setResults(await loadByView({ type: 'recents' }, tree));
+                } else {
+                  setResults(await loadByView(activeView, tree));
+                }
+              }}
+            />
+            <TagsMenu
+              tags={tags}
+              activeName={
+                activeView.type === 'tag' ? activeView.name : undefined
+              }
+              onSelect={(t) => {
+                setQuery('');
+                setResults(null);
+                setActiveView({ type: 'tag', name: t.name });
+                clearDetail();
+              }}
+            />
+          </SidebarContent>
+          <AddFolderFooter
+            onAddFolder={handleAddFolder}
+            onOpenSettings={() => alert('设置页开发中')}
           />
-          <TagsMenu
-            tags={tags}
-            activeName={activeView.type === 'tag' ? activeView.name : undefined}
-            onSelect={(t) => {
-              setQuery('');
-              setResults(null);
-              setActiveView({ type: 'tag', name: t.name });
-            }}
-          />
-        </SidebarContent>
-        <AddBookmarkFooter onAdd={handleAddCurrent} />
-      </Sidebar>
-      <SidebarInset className="h-full overflow-auto">
-        <div className="p-4">
-          <ContentHeader title={headingTitle} />
-          <BookmarksList
-            isExt={isExt}
-            showLoading={Boolean(loading && !results)}
-            items={displayItems}
-          />
-        </div>
-      </SidebarInset>
+        </Sidebar>
+        <SidebarInset className="h-full overflow-auto bg-background/60">
+          <div className="pb-4">
+            <Suspense
+              fallback={
+                <div className="text-sm text-muted-foreground">加载中...</div>
+              }
+            >
+              <ContentHeader
+                title={headingTitle}
+                onAddBookmark={() => setOpenNewBookmark(true)}
+              />
+              <RightPane
+                isExt={isExt}
+                loading={Boolean(loading && !results)}
+                items={displayItems}
+                reload={async () => {
+                  const tree = await getTree();
+                  setResults(await loadByView(activeView, tree));
+                }}
+                sortableParentId={
+                  activeView.type === 'category' &&
+                  activeView.category.mode === 'root-direct'
+                    ? activeView.category.folderId
+                    : undefined
+                }
+              />
+            </Suspense>
+          </div>
+        </SidebarInset>
+      </div>
+      <AddFolderDialog
+        open={openNewFolder}
+        onOpenChange={setOpenNewFolder}
+        currentFolderId={
+          activeView.type === 'category'
+            ? activeView.category.folderId
+            : undefined
+        }
+        onCreated={async (folder) => {
+          const tree = await getTree();
+          const cats = buildCategories(tree);
+          setCategories(cats);
+          const cat = cats.find((c) => c.folderId === folder.id);
+          if (cat) {
+            setActiveView({ type: 'category', category: cat });
+            setResults(
+              await loadByView({ type: 'category', category: cat }, tree),
+            );
+          }
+        }}
+      />
+      <AddBookmarkDialog
+        open={openNewBookmark}
+        onOpenChange={setOpenNewBookmark}
+        currentFolderId={
+          activeView.type === 'category'
+            ? activeView.category.folderId
+            : undefined
+        }
+        onCreated={async (node) => {
+          const tree = await getTree();
+          setResults(await loadByView(activeView, tree));
+        }}
+      />
     </SidebarProvider>
+  );
+}
+
+function RightPane({
+  isExt,
+  loading,
+  items,
+  reload,
+  sortableParentId,
+}: {
+  isExt: boolean;
+  loading: boolean;
+  items: BookmarkNode[];
+  reload: () => Promise<void> | void;
+  sortableParentId?: string;
+}) {
+  // useSearchParams requires Suspense boundary; this component is inside Suspense
+  const params = useSearchParams();
+  const detailId = params.get('id');
+  if (detailId) {
+    return <BookmarkDetail id={detailId} onMutate={reload} />;
+  }
+  return (
+    <BookmarksList
+      isExt={isExt}
+      showLoading={loading}
+      items={items}
+      onMutate={reload}
+      sortableParentId={sortableParentId}
+    />
   );
 }
 

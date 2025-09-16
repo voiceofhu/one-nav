@@ -1,9 +1,9 @@
 {
-  "name": "my-app",
-  "version": "0.1.0",
+  "name": "one-nav",
+  "version": "25.0916.1844",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
     "build": "next build",
     "build:ext": "npm run build && node scripts/build-ext.mjs",
     "start": "next start",

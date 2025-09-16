@@ -18,14 +18,15 @@ type Props = {
 
 export function QuickMenu({ active, onSelectAll, onSelectRecents }: Props) {
   return (
-    <SidebarGroup>
-      <SidebarGroupLabel>快捷</SidebarGroupLabel>
+    <SidebarGroup className="p-0">
+      <SidebarGroupLabel className="text-xs">快捷</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
               isActive={active === 'all'}
               onClick={onSelectAll}
+              size="sm"
               className="data-[active=true]:bg-primary data-[active=true]:text-white data-[active=true]:[&>svg]:text-white"
             >
               <List />
@@ -36,6 +37,7 @@ export function QuickMenu({ active, onSelectAll, onSelectRecents }: Props) {
             <SidebarMenuButton
               isActive={active === 'recents'}
               onClick={onSelectRecents}
+              size="sm"
               className="data-[active=true]:bg-primary data-[active=true]:text-white data-[active=true]:[&>svg]:text-white"
             >
               <Timer />
