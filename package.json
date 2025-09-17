@@ -1,16 +1,17 @@
 {
   "name": "one-nav",
-  "version": "25.0916.1844",
+  "version": "25.0917.1140",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:ext": "npm run build && node scripts/build-ext.mjs",
+    "build:ext": "BUILD_TARGET=extension next build && node scripts/build-ext.mjs",
+    "build:cf": "BUILD_TARGET=cloudflare next build",
     "start": "next start",
     "lint": "eslint",
     "prepare": "husky",
-    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "preview": "BUILD_TARGET=cloudflare opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "BUILD_TARGET=cloudflare opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {

@@ -44,6 +44,28 @@ dev:
 # 开发环境
 deploy:
 	@$(NPM) run deploy
+	
+# ===== 压缩相关 =====
+ZIP := $(shell command -v zip 2> /dev/null)
+ifeq ($(strip $(ZIP)),)
+$(error zip is not installed. Please install zip)
+endif
+
+EXT_DIR := dist-ext
+RELEASE_DIR := release
+EXT_ZIP := $(RELEASE_DIR)/ext-$(VERSION).zip
+
+# 扩展: 构建 + 打包 zip（zip 中是 dist-ext 的内容，而不是整层目录）
+ext:
+	@$(NPM) run build:ext
+	@echo "Packaging $(EXT_DIR) -> $(EXT_ZIP)"
+	@mkdir -p $(RELEASE_DIR)
+	@rm -f $(EXT_ZIP)
+	@cd $(EXT_DIR) && \
+		$(ZIP) -r "../$(EXT_ZIP)" . \
+		-x "*.map" -x "__MACOSX" -x ".*"
+	@echo "Done: $(EXT_ZIP)"
+	
 
 
 .PHONY: update-version push-version push-tag dev deploy-stage deploy build

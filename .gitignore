@@ -10,6 +10,7 @@
 !.yarn/releases
 !.yarn/versions
 
+
 # testing
 /coverage
 
@@ -19,6 +20,9 @@
 /dist/
 /dist-ext/
 /chrome-ext/
+/.wrangler/
+/.open-next/
+/release/
 
 # production
 /build

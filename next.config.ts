@@ -12,12 +12,20 @@ const proxy = async () => {
   ];
 };
 
+// 检查构建目标
+const buildTarget = process.env.BUILD_TARGET || 'extension';
+
 switch (process.env.NODE_ENV) {
   case 'production':
-    nextConfig.output = 'export';
-    nextConfig.images = {};
-    nextConfig.images.unoptimized = true;
-    nextConfig.distDir = 'dist';
+    if (buildTarget === 'cloudflare') {
+      nextConfig.output = 'standalone';
+    } else {
+      // 默认为 Chrome 插件构建
+      nextConfig.output = 'export';
+      nextConfig.images = {};
+      nextConfig.images.unoptimized = true;
+      nextConfig.distDir = 'dist';
+    }
     break;
   case 'development':
     nextConfig.rewrites = proxy;
