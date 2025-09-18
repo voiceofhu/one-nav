@@ -157,7 +157,7 @@ export function AddBookmarkDialog({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="sm:max-w-[600px] overflow-hidden border border-white/30 bg-white/80 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/80">
+      <DrawerContent className="sm:max-w-[600px] overflow-hidden border border-white/30 bg-white shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/80">
         <Form {...form}>
           <form onSubmit={handleSubmit} className="flex h-full flex-col">
             <DrawerHeader className="sticky top-0 z-20 flex flex-row items-center justify-between gap-3 border-b border-white/40 bg-white/90 px-5 py-3 text-left backdrop-blur-xl dark:border-white/5 dark:bg-slate-950/80">

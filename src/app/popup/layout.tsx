@@ -30,52 +30,54 @@ export default function PopupLayout({
     });
   }, []);
   return (
-    <PopupStateProvider>
-      <SidebarProvider
-        className="relative overflow-hidden"
-        style={
-          {
-            width: POPUP_WIDTH,
-            height: POPUP_HEIGHT,
-            ['--sidebar-width' as unknown as string]: `${SIDEBAR_WIDTH}px`,
-          } as CSSProperties
-        }
-      >
-        <PopupDataListener />
-        {/* 背景（可选） */}
-        <div className="pointer-events-none absolute inset-0">
-          <div className="animated-gradient" />
-        </div>
+    <Suspense fallback={<div>Loading...</div>}>
+      <PopupStateProvider>
+        <SidebarProvider
+          className="relative overflow-hidden"
+          style={
+            {
+              width: POPUP_WIDTH,
+              height: POPUP_HEIGHT,
+              ['--sidebar-width' as unknown as string]: `${SIDEBAR_WIDTH}px`,
+            } as CSSProperties
+          }
+        >
+          <PopupDataListener />
+          {/* 背景（可选） */}
+          <div className="pointer-events-none absolute inset-0">
+            <div className="animated-gradient" />
+          </div>
 
-        {/* 主体结构：左侧 Sidebar + 右侧 Inset（children） */}
-        <div className="relative z-10 flex h-full w-full">
-          <Sidebar
-            collapsible="none"
-            variant="floating"
-            className={clsx(
-              'border-r bg-background/40 backdrop-blur pointer-events-auto',
-            )}
-          >
-            <Suspense
-              fallback={
-                <div className="text-sm text-muted-foreground">加载中...</div>
-              }
+          {/* 主体结构：左侧 Sidebar + 右侧 Inset（children） */}
+          <div className="relative z-10 flex h-full w-full">
+            <Sidebar
+              collapsible="none"
+              variant="floating"
+              className={clsx(
+                'border-r bg-background/40 backdrop-blur pointer-events-auto',
+              )}
             >
-              <LeftSidebar />
-            </Suspense>
-          </Sidebar>
+              <Suspense
+                fallback={
+                  <div className="text-sm text-muted-foreground">加载中...</div>
+                }
+              >
+                <LeftSidebar />
+              </Suspense>
+            </Sidebar>
 
-          <SidebarInset className="h-full overflow-auto bg-background/60">
-            <Suspense
-              fallback={
-                <div className="text-sm text-muted-foreground">加载中...</div>
-              }
-            >
-              {children}
-            </Suspense>
-          </SidebarInset>
-        </div>
-      </SidebarProvider>
-    </PopupStateProvider>
+            <SidebarInset className="h-full overflow-auto bg-background/60">
+              <Suspense
+                fallback={
+                  <div className="text-sm text-muted-foreground">加载中...</div>
+                }
+              >
+                {children}
+              </Suspense>
+            </SidebarInset>
+          </div>
+        </SidebarProvider>
+      </PopupStateProvider>
+    </Suspense>
   );
 }
