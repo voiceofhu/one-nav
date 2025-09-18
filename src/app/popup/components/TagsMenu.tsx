@@ -9,7 +9,9 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 
-export type TagItem = { name: string; count: number };
+import type { TagItem } from '../lib/bookmark-utils';
+
+export type { TagItem } from '../lib/bookmark-utils';
 
 type Props = {
   tags: TagItem[];

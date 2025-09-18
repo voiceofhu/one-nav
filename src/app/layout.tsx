@@ -67,28 +67,6 @@ export default function RootLayout({
           content="#000000"
           media="(prefers-color-scheme: dark)"
         />
-        {pkg.seo.jsonLd && (
-          <Script
-            id="onefile-jsonld"
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(pkg.seo.jsonLd) }}
-            strategy="beforeInteractive"
-          />
-        )}
-        {/* Old IE redirect (web only) */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                var isIE = /MSIE|Trident/.test(navigator.userAgent);
-                var isOldIE = /MSIE [1-9]\\.|MSIE 10\\./.test(navigator.userAgent);
-                if (isOldIE) {
-                  window.location.href = '/ie.html';
-                }
-              })();
-            `,
-          }}
-        />
       </head>
       <body className={inter.className} suppressHydrationWarning>
         <Providers>{children}</Providers>

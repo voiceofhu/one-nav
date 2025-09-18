@@ -11,8 +11,12 @@
     "default_title": "OneNav 书签管理",
     "default_popup": "popup.html"
   },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
   "permissions": ["bookmarks", "storage", "tabs", "activeTab", "contextMenus"],
-  "host_permissions": ["https://onenav.h06i.com/*"],
+  "host_permissions": ["https://onenav.h06i.com/*", "http://127.0.0.1/*"],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data: blob: https://www.google.com https://*.google.com https://*.gstatic.com https://icons.duckduckgo.com; connect-src 'self' https://onenav.h06i.com wss://onenav.h06i.com "
   },

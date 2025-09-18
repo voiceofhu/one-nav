@@ -29,6 +29,14 @@ async function copyDir(src, dst) {
   }
 }
 
+function rewriteNextPaths(content) {
+  return content
+    .replaceAll('/_next/', '/next/')
+    .replaceAll('./_next/', './next/')
+    .replaceAll('"/_next/', '"/next/')
+    .replaceAll("'/_next/", "'/next/");
+}
+
 async function rewriteFiles(root) {
   const stack = [root];
   while (stack.length) {
@@ -40,14 +48,58 @@ async function rewriteFiles(root) {
       const isText = /\.(html?|css|js|mjs|cjs|json|txt|map)$/.test(e.name);
       if (!isText) continue;
       const content = await fs.readFile(p, 'utf8');
-      const replaced = content
-        .replaceAll('/_next/', '/next/')
-        .replaceAll('./_next/', './next/')
-        .replaceAll('"/_next/', '"/next/')
-        .replaceAll("'/_next/", "'/next/");
+      const replaced = rewriteNextPaths(content);
       if (replaced !== content) await fs.writeFile(p, replaced);
     }
   }
+}
+
+function sanitizeScriptBlocks(html, baseName, initBlocks, inlineBlocks) {
+  return html.replace(/<script>([\s\S]*?)<\/script>/g, (match, code = '') => {
+    const trimmed = code.trim();
+    if (!trimmed) return '';
+    if (trimmed.includes('self.__next_')) {
+      initBlocks.push(trimmed);
+      return '';
+    }
+    const file = `${baseName}.inline.${inlineBlocks.length}.js`;
+    inlineBlocks.push({ file, code: trimmed });
+    return `<script src="/${file}"></script>`;
+  });
+}
+
+async function sanitizeHtmlEntry({ baseName, helperScripts = [] }) {
+  const htmlName = `${baseName}.html`;
+  const dstPath = path.join(DST, htmlName);
+  if (!(await exists(dstPath))) return;
+
+  let html = await fs.readFile(dstPath, 'utf8');
+  const initBlocks = [];
+  const inlineBlocks = [];
+
+  html = sanitizeScriptBlocks(html, baseName, initBlocks, inlineBlocks);
+
+  if (initBlocks.length) {
+    const initFile = baseName === 'popup' ? 'popup.init.js' : `${baseName}.init.js`;
+    const initPath = path.join(DST, initFile);
+    const initContent = rewriteNextPaths(initBlocks.join('\n'));
+    await fs.writeFile(initPath, initContent, 'utf8');
+    if (!html.includes(`/${initFile}`)) {
+      html = html.replace('</body>', `<script src="/${initFile}"></script></body>`);
+    }
+  }
+
+  for (const { file, code } of inlineBlocks) {
+    await fs.writeFile(path.join(DST, file), rewriteNextPaths(code), 'utf8');
+  }
+
+  for (const helper of helperScripts) {
+    if (!html.includes(`/${helper}`)) {
+      html = html.replace('</body>', `<script src="/${helper}"></script></body>`);
+    }
+  }
+
+  await fs.writeFile(dstPath, html, 'utf8');
 }
 
 async function main() {
@@ -63,46 +115,23 @@ async function main() {
   await rewriteFiles(DST);
 
   // Copy helper script only (do not override Next popup.html)
+  const injectedHelpers = [];
   for (const f of ['popup.js']) {
     const src = path.join(PUB, f);
     const dst = path.join(DST, f);
-    if (await exists(src)) await fs.copyFile(src, dst);
+    if (await exists(src)) {
+      await fs.copyFile(src, dst);
+      injectedHelpers.push(f);
+    }
   }
 
-  // Sanitize Next's popup.html: move inline Next init blocks into external file
-  const popupDst = path.join(DST, 'popup.html');
-  if (await exists(popupDst)) {
-    const popupSrc = path.join(SRC, 'popup.html');
-    let srcHtml = '';
-    if (await exists(popupSrc)) srcHtml = await fs.readFile(popupSrc, 'utf8');
-
-    // Collect inline <script> blocks that contain Next's runtime queues
-    const initBlocks = [];
-    if (srcHtml) {
-      const re = /<script>([\s\S]*?)<\/script>/g;
-      let m;
-      while ((m = re.exec(srcHtml))) {
-        const code = m[1] || '';
-        if (code.includes('self.__next_')) initBlocks.push(code);
-      }
-    }
-
-    let html = await fs.readFile(popupDst, 'utf8');
-    // Strip all inline scripts to satisfy MV3 CSP
-    html = html.replace(/<script>([\s\S]*?)<\/script>/g, '');
-
-    if (initBlocks.length) {
-      const initPath = path.join(DST, 'popup.init.js');
-      await fs.writeFile(initPath, initBlocks.join('\n'), 'utf8');
-      if (!html.includes('/popup.init.js')) {
-        html = html.replace('</body>', '<script src="/popup.init.js"></script></body>');
-      }
-    }
-    // Inject benign-error silencer
-    if (!html.includes('/popup.js')) {
-      html = html.replace('</body>', '<script src="/popup.js"></script></body>');
-    }
-    await fs.writeFile(popupDst, html, 'utf8');
+  // Sanitize HTML entry points (popup, options, etc.) for MV3 CSP
+  const entries = await fs.readdir(DST);
+  for (const entry of entries) {
+    if (!entry.endsWith('.html')) continue;
+    const baseName = entry.replace(/\.html$/, '');
+    const helperScripts = baseName === 'popup' ? injectedHelpers : [];
+    await sanitizeHtmlEntry({ baseName, helperScripts });
   }
 
   console.log('Chrome extension folder ready:', DST);

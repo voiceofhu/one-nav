@@ -13,14 +13,13 @@ import {
   getChildren,
   moveNode,
   removeBookmark,
-  updateBookmark,
 } from '@/extension/data';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { Code2, Info, MoreHorizontal } from 'lucide-react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
+import { usePopupState } from '../state/popup-state';
 import { ConfirmDrawer } from './ConfirmDrawer';
 
 type Props = {
@@ -94,7 +93,6 @@ function renderList(
           node={b}
           onMutate={onMutate}
           sortableParentId={sortableParentId}
-          index={idx}
         />
       ))}
     </ul>
@@ -105,20 +103,15 @@ function BookmarkRow({
   node,
   onMutate,
   sortableParentId,
-  index,
 }: {
   node: BookmarkNode;
   onMutate?: () => void;
   sortableParentId?: string;
-  index?: number;
 }) {
   const url = node.url || '';
   const isScript = url.trim().toLowerCase().startsWith('javascript:');
   const title = node.title || url;
-  const host = useMemo(() => formatHost(url), [url]);
-  const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
+  const popup = usePopupState();
 
   const timeText = useMemo(() => {
     const d = node.dateAdded;
@@ -134,16 +127,11 @@ function BookmarkRow({
   }, [node.dateAdded]);
 
   function gotoDetail() {
-    const sp = new URLSearchParams(params.toString());
-    sp.set('id', node.id);
-    router.push(`${pathname}?${sp.toString()}`);
+    popup.openDetail(node.id);
   }
 
   async function handleEdit() {
-    const name = window.prompt('重命名', node.title || '');
-    if (!name) return;
-    await updateBookmark(node.id, { title: name });
-    onMutate?.();
+    popup.openDetail(node.id);
   }
 
   async function handleDelete() {
@@ -249,11 +237,11 @@ function BookmarkRow({
             </div>
           </div>
         </div>
-        <div className="flex items-center justify-between gap-2 text-[12px] text-muted-foreground">
+        <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
           <OverflowTooltipCell
             text={url}
             tooltipText={url}
-            className="min-w-0 truncate text-[#666]"
+            className="min-w-0 truncate text-[#999]"
           />
           {timeText && (
             <span className="shrink-0 text-[#999] text-[10px]">{timeText}</span>
@@ -333,8 +321,6 @@ function getFaviconCandidates(url: string): string[] {
   try {
     const u = new URL(url);
     const domainUrl = `${u.protocol}//${u.hostname}`;
-    const host = u.hostname;
-    // const encodedHost = encodeURIComponent(host);
 
     const candidates = [
       // FaviconKit prefers high-res PWA/touch icons and works reliably in mainland China.
@@ -358,13 +344,4 @@ function getFaviconCandidates(url: string): string[] {
 function getFaviconUrl(url: string) {
   const [primary] = getFaviconCandidates(url);
   return primary ?? '/globe.svg';
-}
-
-function formatHost(url: string): string {
-  try {
-    const u = new URL(url);
-    return u.hostname.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
 }

@@ -17,12 +17,15 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { type BookmarkNode, addFolder, getTree } from '@/extension/data';
+import { type BookmarkNode, addFolder } from '@/extension/data';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
 import { ChevronDown, ChevronRight, Folder } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+
+import { popupTreeQueryOptions } from '../hooks/use-popup-data';
 
 type Props = {
   open: boolean;
@@ -40,6 +43,7 @@ export function AddFolderDialog({
   const [tree, setTree] = useState<BookmarkNode[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+  const queryClient = useQueryClient();
 
   const schema = useMemo(
     () =>
@@ -59,7 +63,7 @@ export function AddFolderDialog({
   useEffect(() => {
     if (!open) return;
     (async () => {
-      const t = await getTree();
+      const t = await queryClient.ensureQueryData(popupTreeQueryOptions);
       setTree(t);
       const rootId = currentFolderId || t?.[0]?.id;
       // set defaults once dialog opens
@@ -69,7 +73,7 @@ export function AddFolderDialog({
       for (const n of t?.[0]?.children || []) if (!n.url) firstLayer.add(n.id);
       setExpanded(firstLayer);
     })();
-  }, [open, currentFolderId, form]);
+  }, [open, currentFolderId, form, queryClient]);
 
   // keep tree in dialog, no need to flatten
 

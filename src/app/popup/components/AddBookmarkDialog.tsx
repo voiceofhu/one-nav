@@ -18,20 +18,18 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import {
-  type BookmarkNode,
-  addBookmark,
-  getActiveTab,
-  getTree,
-} from '@/extension/data';
+import { type BookmarkNode, addBookmark, getActiveTab } from '@/extension/data';
 import { AccountCredential, setBookmarkMeta } from '@/extension/storage';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
 import { Folder } from 'lucide-react';
 import { ChevronDown, ChevronRight, QrCode } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
+
+import { popupTreeQueryOptions } from '../hooks/use-popup-data';
 
 type Props = {
   open: boolean;
@@ -50,6 +48,7 @@ export function AddBookmarkDialog({
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
 
   const schema = useMemo(
     () =>
@@ -89,7 +88,7 @@ export function AddBookmarkDialog({
   useEffect(() => {
     if (!open) return;
     (async () => {
-      const t = await getTree();
+      const t = await queryClient.ensureQueryData(popupTreeQueryOptions);
       setTree(t);
       const tab = await getActiveTab();
       const rootId = currentFolderId || t?.[0]?.id;
@@ -103,7 +102,7 @@ export function AddBookmarkDialog({
       for (const n of t?.[0]?.children || []) if (!n.url) firstLayer.add(n.id);
       setExpanded(firstLayer);
     })();
-  }, [open, currentFolderId, form]);
+  }, [open, currentFolderId, form, queryClient]);
 
   const handleSubmit = form.handleSubmit(async (values) => {
     setSaving(true);

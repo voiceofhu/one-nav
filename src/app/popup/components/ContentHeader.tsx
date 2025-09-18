@@ -1,8 +1,8 @@
 'use client';
 
-import { Separator } from '@/components/ui/separator';
 import { ArrowLeft } from 'lucide-react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+
+import { usePopupState } from '../state/popup-state';
 
 export function ContentHeader({
   title,
@@ -11,16 +11,8 @@ export function ContentHeader({
   title: string;
   onAddBookmark?: () => void;
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
-  const inDetail = Boolean(params.get('id'));
-
-  function goBack() {
-    const sp = new URLSearchParams(params.toString());
-    sp.delete('id');
-    router.replace(sp.toString() ? `${pathname}?${sp.toString()}` : pathname);
-  }
+  const { detailId, closeDetail } = usePopupState();
+  const inDetail = Boolean(detailId);
 
   return (
     <div className="sticky top-0 z-10 px-4 pt-2 pb-2  backdrop-blur supports-[backdrop-filter]:bg-background/90 rounded-br-2xl">
@@ -29,7 +21,7 @@ export function ContentHeader({
           {inDetail && (
             <button
               className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-accent"
-              onClick={goBack}
+              onClick={closeDetail}
               title="返回"
             >
               <ArrowLeft className="h-4 w-4" />

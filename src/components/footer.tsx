@@ -22,7 +22,6 @@ export function Footer() {
             <div className="grid gap-2">
               <div className="flex justify-between items-center">
                 <p>
-                  由{' '}
                   <a
                     href={pkg.seo.og.url}
                     target="_blank"

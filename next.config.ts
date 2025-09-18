@@ -17,6 +17,7 @@ const buildTarget = process.env.BUILD_TARGET || 'extension';
 
 switch (process.env.NODE_ENV) {
   case 'production':
+    console.log('buildTarget', buildTarget);
     if (buildTarget === 'cloudflare') {
       nextConfig.output = 'standalone';
     } else {

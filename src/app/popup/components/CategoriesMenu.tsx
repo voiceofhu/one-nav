@@ -15,19 +15,13 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { getChildren, removeFolder, updateFolder } from '@/extension/data';
+import { getChildren, removeFolder } from '@/extension/data';
 import { Folder, MoreHorizontal } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
+import type { Category } from '../lib/bookmark-utils';
 import { ConfirmDrawer } from './ConfirmDrawer';
-
-export type Category = {
-  id: string;
-  label: string;
-  folderId: string; // referenced folder id backing this category
-  mode: 'root-direct' | 'subtree';
-};
 
 type Props = {
   categories: Category[];
@@ -88,15 +82,11 @@ export function CategoriesMenu({
                       onClick={async (e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        const name = window.prompt(
-                          '重命名目录',
-                          c.label.split('/').pop() || '',
-                        );
-                        if (!name) return;
+
                         try {
-                          await updateFolder(c.folderId, {
-                            title: name.trim(),
-                          });
+                          // await updateFolder(c.folderId, {
+                          //   title: name.trim(),
+                          // });
                           toast.success('已重命名');
                           await onMutate?.();
                         } catch (err) {

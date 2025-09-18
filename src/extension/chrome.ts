@@ -83,7 +83,7 @@ interface ChromeTabsAPI {
 interface MinimalChrome {
   bookmarks?: ChromeBookmarksAPI;
   tabs?: ChromeTabsAPI;
-  runtime?: { id?: string };
+  runtime?: { id?: string; openOptionsPage: () => void };
 }
 
 declare global {
@@ -292,4 +292,10 @@ export function onBookmarksChanged(cb: BookmarkChangedCb) {
 export function isExtensionContext() {
   const ch = ensureChrome();
   return Boolean(ch?.runtime?.id);
+}
+
+export function openOptionsPage() {
+  const ch = ensureChrome();
+  if (!ch || !ch.runtime) return;
+  ch.runtime.openOptionsPage();
 }

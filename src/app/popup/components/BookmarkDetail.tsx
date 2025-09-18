@@ -14,10 +14,10 @@ import {
   getBookmarkMeta,
   setBookmarkMeta,
 } from '@/extension/storage';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
+import { usePopupState } from '../state/popup-state';
 import { ConfirmDrawer } from './ConfirmDrawer';
 
 export function BookmarkDetail({
@@ -30,9 +30,7 @@ export function BookmarkDetail({
   const [node, setNode] = useState<BookmarkNode | null>(null);
   const [accounts, setAccounts] = useState<AccountCredential[]>([]);
   const [editing, setEditing] = useState(false);
-  const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
+  const { closeDetail } = usePopupState();
 
   useEffect(() => {
     (async () => {
@@ -61,7 +59,7 @@ export function BookmarkDetail({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-4">
       <div>
         <div className="text-xs text-muted-foreground mb-1">标题</div>
         <Input
@@ -89,7 +87,9 @@ export function BookmarkDetail({
         <Button
           size="sm"
           variant="outline"
-          onClick={() => window.open(node.url, '_blank')?.focus()}
+          onClick={() => {
+            if (node?.url) window.open(node.url, '_blank', 'noreferrer');
+          }}
         >
           打开
         </Button>
@@ -111,9 +111,7 @@ export function BookmarkDetail({
           if (!node) return;
           await removeBookmark(node.id);
           onMutate?.();
-          const sp = new URLSearchParams(params.toString());
-          sp.delete('id');
-          router.replace(`${pathname}?${sp.toString()}`);
+          closeDetail();
         }}
       />
 
@@ -348,15 +346,12 @@ function maskPassword(pwd: string) {
   return '•'.repeat(len);
 }
 
-function formatDate(ts: number) {
+function formatDate(ts?: number) {
+  if (!ts) return '—';
   try {
-    const d = new Date(ts);
-    const y = d.getFullYear();
-    const m = d.getMonth() + 1;
-    const day = d.getDate();
-    return `${y}/${m}/${day}`;
+    return new Date(ts).toLocaleDateString();
   } catch {
-    return '';
+    return '—';
   }
 }
 
@@ -401,10 +396,10 @@ function useTotp(input?: string) {
       setProgress((period - remain) / period);
     }
     tick();
-    const timer = window.setInterval(tick, 1000);
+    const timer = setInterval(tick, 1000);
     return () => {
       mounted = false;
-      window.clearInterval(timer);
+      clearInterval(timer);
     };
   }, [input]);
 

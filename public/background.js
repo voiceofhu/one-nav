@@ -80,5 +80,3 @@ if (chrome.bookmarks.onChildrenReordered) {
 }
 // 背景脚本就绪
 console.log('OneNav background service worker ready');
-console.log(window.chrome.bookmarks);
-console.log(window.chrome.bookmark);
