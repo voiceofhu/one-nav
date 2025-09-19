@@ -56,7 +56,7 @@ export function CategoriesMenu({
                 className=" cursor-pointer data-[active=true]:bg-primary data-[active=true]:text-white data-[active=true]:[&>svg]:text-white pr-8"
               >
                 <Folder />
-                <span className="truncate">{c.label}</span>
+                <span className="truncate ">{c.label}</span>
               </SidebarMenuButton>
               {c.mode === 'subtree' && (
                 <DropdownMenu>

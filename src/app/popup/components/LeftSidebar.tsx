@@ -3,7 +3,6 @@
 import { SidebarContent } from '@/components/ui/sidebar';
 import { useEffect, useState } from 'react';
 
-import { FolderFooter } from '../components/AddFolderFooter';
 import { CategoriesMenu } from '../components/CategoriesMenu';
 import { QuickMenu } from '../components/QuickMenu';
 import { SidebarHeaderSearch } from '../components/SidebarHeaderSearch';
@@ -14,6 +13,7 @@ import {
   usePopupTags,
 } from '../hooks/use-popup-data';
 import { usePopupState } from '../state/popup-state';
+import { FolderFooter } from './FolderFooter';
 
 export default function LeftSidebar() {
   const {

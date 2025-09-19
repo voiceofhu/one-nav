@@ -30,7 +30,7 @@ export default function PopupLayout({
     });
   }, []);
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<div className="p-4">Loading...</div>}>
       <PopupStateProvider>
         <SidebarProvider
           className="relative overflow-hidden"
@@ -59,7 +59,9 @@ export default function PopupLayout({
             >
               <Suspense
                 fallback={
-                  <div className="text-sm text-muted-foreground">加载中...</div>
+                  <div className="text-sm p-4 text-muted-foreground">
+                    加载中...
+                  </div>
                 }
               >
                 <LeftSidebar />
@@ -69,7 +71,9 @@ export default function PopupLayout({
             <SidebarInset className="h-full overflow-auto bg-background/60">
               <Suspense
                 fallback={
-                  <div className="text-sm text-muted-foreground">加载中...</div>
+                  <div className="text-sm p-4 text-muted-foreground">
+                    加载中...
+                  </div>
                 }
               >
                 {children}

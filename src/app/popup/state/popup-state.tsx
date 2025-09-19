@@ -6,7 +6,9 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useState,
 } from 'react';
 
 type PopupView = 'recents' | 'all' | 'search' | 'category' | 'tag';
@@ -36,27 +38,57 @@ export function PopupStateProvider({ children }: PropsWithChildren) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
+  const paramsString = params.toString();
+
+  const [shouldSyncUrl, setShouldSyncUrl] = useState(false);
+  const [localParams, setLocalParams] = useState<URLSearchParams>(
+    () => new URLSearchParams(paramsString),
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setShouldSyncUrl(window.location.protocol !== 'chrome-extension:');
+  }, []);
+
+  useEffect(() => {
+    if (shouldSyncUrl) {
+      setLocalParams(new URLSearchParams(paramsString));
+    }
+  }, [paramsString, shouldSyncUrl]);
+
+  const activeParams = useMemo(() => {
+    return shouldSyncUrl ? new URLSearchParams(paramsString) : localParams;
+  }, [localParams, paramsString, shouldSyncUrl]);
 
   const replaceSearch = useCallback(
     (updater: (params: URLSearchParams) => void) => {
-      const next = new URLSearchParams(params.toString());
+      if (!shouldSyncUrl) {
+        setLocalParams((prev) => {
+          const nextParams = new URLSearchParams(prev.toString());
+          updater(nextParams);
+          return nextParams;
+        });
+        return;
+      }
+
+      const next = new URLSearchParams(paramsString);
       updater(next);
       const queryString = next.toString();
       router.replace(queryString ? `${pathname}?${queryString}` : pathname, {
         scroll: false,
       });
     },
-    [params, pathname, router],
+    [paramsString, pathname, router, shouldSyncUrl],
   );
 
-  const modalParam = params.get('modal');
+  const modalParam = activeParams.get('modal');
   const modal: PopupModal =
     modalParam === 'addFolder' || modalParam === 'addBookmark'
       ? (modalParam as PopupModal)
       : null;
 
   const value = useMemo<PopupStateValue>(() => {
-    const viewParam = params.get('view');
+    const viewParam = activeParams.get('view');
     const view: PopupView =
       viewParam === 'all' ||
       viewParam === 'search' ||
@@ -65,10 +97,10 @@ export function PopupStateProvider({ children }: PropsWithChildren) {
         ? (viewParam as PopupView)
         : 'recents';
 
-    const query = params.get('q') ?? '';
-    const categoryId = params.get('categoryId') ?? undefined;
-    const tag = params.get('tag') ?? undefined;
-    const detailId = params.get('id') ?? undefined;
+    const query = activeParams.get('q') ?? '';
+    const categoryId = activeParams.get('categoryId') ?? undefined;
+    const tag = activeParams.get('tag') ?? undefined;
+    const detailId = activeParams.get('id') ?? undefined;
 
     const setView: PopupStateValue['setView'] = (nextView, options) => {
       replaceSearch((sp) => {
@@ -154,7 +186,7 @@ export function PopupStateProvider({ children }: PropsWithChildren) {
       setModal,
       replaceSearch,
     };
-  }, [modal, params, replaceSearch]);
+  }, [activeParams, modal, replaceSearch]);
 
   return (
     <PopupStateContext.Provider value={value}>

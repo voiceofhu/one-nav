@@ -58,7 +58,7 @@ function renderList(
   sortableParentId?: string,
 ) {
   if (showLoading) {
-    return <div className="text-sm text-muted-foreground">加载中...</div>;
+    return <div className="text-sm p-4 text-muted-foreground">加载中...</div>;
   }
   if (items.length === 0) {
     return <div className="text-sm text-muted-foreground">暂无书签</div>;

@@ -53,7 +53,7 @@ export default function PopupPage() {
       <div className="pb-4">
         <Suspense
           fallback={
-            <div className="text-sm text-muted-foreground">加载中...</div>
+            <div className="text-sm p-4 text-muted-foreground">加载中...</div>
           }
         >
           <ContentHeader

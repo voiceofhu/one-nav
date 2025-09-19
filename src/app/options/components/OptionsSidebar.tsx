@@ -3,7 +3,11 @@
 import clsx from 'clsx';
 import type { ComponentType, SVGProps } from 'react';
 
-export type OptionsSection = 'general' | 'import-export' | 'about';
+export type OptionsSection =
+  | 'general'
+  | 'import-export'
+  | 'link-health'
+  | 'about';
 
 type SidebarItem = {
   id: OptionsSection;
@@ -19,6 +23,7 @@ type Props = {
 const ITEMS: SidebarItem[] = [
   { id: 'general', label: '基本设置' },
   { id: 'import-export', label: '导入 / 导出' },
+  { id: 'link-health', label: '链接体检' },
   { id: 'about', label: '关于' },
 ];
 

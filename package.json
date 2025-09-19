@@ -1,6 +1,6 @@
 {
   "name": "one-nav",
-  "version": "25.0918.1907",
+  "version": "25.0919.1444",
   "private": true,
   "scripts": {
     "dev": "next dev",
