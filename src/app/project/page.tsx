@@ -159,7 +159,7 @@ async function loadProjects(): Promise<{
   intro: string;
   entries: ProjectEntry[];
 }> {
-  const mdPath = path.join(process.cwd(), 'src/app/me/project.md');
+  const mdPath = path.join(process.cwd(), 'src/app/project/project.md');
   const fileContent = await fs.readFile(mdPath, 'utf8');
   const [introSection, ...projectSections] = fileContent.split('\n---\n');
 
