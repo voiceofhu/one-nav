@@ -203,7 +203,7 @@ function BookmarkRow({
                 gotoDetail();
               }}
             >
-              {isActive ? '查看中' : '详情'}
+              {'详情'}
             </Button>
           </div>
         </div>

@@ -301,7 +301,7 @@ export function AddBookmarkDialog({
                   <div className="text-[12px] font-semibold text-muted-foreground">
                     基础信息
                   </div>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-4 ">
                     <FormField
                       control={form.control}
                       name="title"
