@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 
 import { AboutSection } from './components/AboutSection';
 import { GeneralSettingsSection } from './components/GeneralSettingsSection';
@@ -19,8 +20,52 @@ const SECTION_TITLES: Record<OptionsSection, string> = {
   about: '关于 OneNav',
 };
 
+const OPTION_TARGET_STORAGE_KEY = 'onenav:options:target-section';
+
+function isOptionsSection(value: string | null): value is OptionsSection {
+  return (
+    value === 'general' ||
+    value === 'import-export' ||
+    value === 'link-health' ||
+    value === 'about'
+  );
+}
+
 export default function OptionsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-6 text-sm text-muted-foreground">加载中...</div>
+      }
+    >
+      <OptionsPageContent />
+    </Suspense>
+  );
+}
+
+function OptionsPageContent() {
+  const params = useSearchParams();
+  const sectionParam = params.get('section');
   const [section, setSection] = useState<OptionsSection>('general');
+
+  useEffect(() => {
+    if (isOptionsSection(sectionParam)) {
+      setSection(sectionParam);
+      if (typeof window !== 'undefined') {
+        window.localStorage?.removeItem(OPTION_TARGET_STORAGE_KEY);
+      }
+      return;
+    }
+
+    if (typeof window === 'undefined') return;
+    const stored =
+      window.localStorage?.getItem(OPTION_TARGET_STORAGE_KEY) ?? null;
+    if (isOptionsSection(stored)) {
+      setSection(stored);
+      window.localStorage.removeItem(OPTION_TARGET_STORAGE_KEY);
+    }
+  }, [sectionParam]);
+
   const title = useMemo(() => SECTION_TITLES[section], [section]);
 
   return (

@@ -78,12 +78,20 @@ interface ChromeTabsAPI {
     queryInfo: { active?: boolean; currentWindow?: boolean },
     callback: (tabs: ChromeTab[]) => void,
   ): void;
+  create?(
+    createProperties: { url: string },
+    callback?: (tab: ChromeTab) => void,
+  ): void;
 }
 
 interface MinimalChrome {
   bookmarks?: ChromeBookmarksAPI;
   tabs?: ChromeTabsAPI;
-  runtime?: { id?: string; openOptionsPage: () => void };
+  runtime?: {
+    id?: string;
+    openOptionsPage?: () => void;
+    getURL?: (path: string) => string;
+  };
 }
 
 declare global {
@@ -294,8 +302,30 @@ export function isExtensionContext() {
   return Boolean(ch?.runtime?.id);
 }
 
-export function openOptionsPage() {
+export function openOptionsPage(section?: string) {
   const ch = ensureChrome();
-  if (!ch || !ch.runtime) return;
-  ch.runtime.openOptionsPage();
+  if (!ch) return;
+
+  const runtime = ch.runtime;
+  const tabs = ch.tabs;
+  const targetPath = section
+    ? `options.html?section=${section}`
+    : 'options.html';
+  const targetUrl = runtime?.getURL ? runtime.getURL(targetPath) : undefined;
+
+  if (section && tabs?.create && targetUrl) {
+    tabs.create({ url: targetUrl });
+    return;
+  }
+
+  if (runtime?.openOptionsPage) {
+    runtime.openOptionsPage();
+    return;
+  }
+
+  if (typeof window !== 'undefined') {
+    const fallbackUrl =
+      targetUrl ?? (section ? `/options?section=${section}` : '/options');
+    window.open(fallbackUrl, '_blank', 'noopener');
+  }
 }

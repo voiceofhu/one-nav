@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import {
   Drawer,
   DrawerContent,
+  DrawerDescription,
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer';
@@ -18,11 +19,12 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import { type BookmarkNode, addBookmark, getActiveTab } from '@/extension/data';
 import { AccountCredential, setBookmarkMeta } from '@/extension/storage';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
-import { Folder } from 'lucide-react';
+import { ArrowLeft, Folder } from 'lucide-react';
 import { ChevronDown, ChevronRight, QrCode } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
@@ -156,23 +158,29 @@ export function AddBookmarkDialog({
   }
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="sm:max-w-[600px] overflow-hidden border border-white/30 bg-white shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/80">
+    <Drawer direction="right" open={open} onOpenChange={onOpenChange}>
+      <DrawerContent className="sm:max-w-[600px] overflow-hidden border border-white/30 bg-white shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/80 ">
         <Form {...form}>
-          <form onSubmit={handleSubmit} className="flex h-full flex-col">
+          <form
+            onSubmit={handleSubmit}
+            className="flex h-full overflow-auto flex-col"
+          >
             <DrawerHeader className="sticky top-0 z-20 flex flex-row items-center justify-between gap-3 border-b border-white/40 bg-white/90 px-5 py-3 text-left backdrop-blur-xl dark:border-white/5 dark:bg-slate-950/80">
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
-                className="text-sm font-medium text-muted-foreground hover:text-foreground"
+                size="icon"
+                className="font-medium text-muted-foreground hover:text-foreground"
                 onClick={() => onOpenChange(false)}
               >
-                取消
+                <ArrowLeft />
               </Button>
               <DrawerTitle className="flex-1 text-center text-base font-semibold">
                 添加书签
               </DrawerTitle>
+              <DrawerDescription className="sr-only">
+                填写书签名称、链接和其它信息后保存。
+              </DrawerDescription>
               <Button
                 type="submit"
                 size="sm"
@@ -204,7 +212,11 @@ export function AddBookmarkDialog({
                     <FormItem>
                       <FormLabel>网址</FormLabel>
                       <FormControl>
-                        <Input className="h-8 text-[13px]" {...field} />
+                        <Textarea
+                          className="h-auto min-h-8 text-[13px]"
+                          rows={2}
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -363,6 +375,7 @@ function FolderTree({
           >
             {hasSubfolder(n) ? (
               <button
+                type="button"
                 className={
                   'mr-1 rounded-md p-0.5 transition-colors ' +
                   (selected === n.id

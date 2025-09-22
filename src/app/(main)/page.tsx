@@ -68,7 +68,7 @@ const pricingTiers = [
   {
     name: '本地基础版',
     price: '￥0',
-    subPrice: '永久免费',
+    subPrice: '长期免费',
     description: '离线可用的书签管理与搜索体验，数据存储在你的设备里。',
     features: ['无限书签与标签', '命令面板与快捷键', '导入导出与备份'],
     cta: {
@@ -156,7 +156,7 @@ export default function Page() {
                 <Link href="#pricing">查看定价策略</Link>
               </Button>
               <p className="mt-2 text-sm text-muted-foreground">
-                本地使用永久免费 · 云端同步仅 $0.99 / 月
+                本地使用长期免费 · 云端同步仅 $0.99 / 月
               </p>
             </div>
             {keywords.length > 0 && (
@@ -339,7 +339,7 @@ export default function Page() {
             简单透明的定价策略
           </h2>
           <p className="mt-4 text-base text-muted-foreground sm:text-lg">
-            本地方案永久免费，云端专业版仅 $0.99 /
+            本地方案长期免费，云端专业版仅 $0.99 /
             月，为自动同步、历史版本与团队协作提供足够的弹性空间。
           </p>
         </motion.div>

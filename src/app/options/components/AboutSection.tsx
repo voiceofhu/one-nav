@@ -4,8 +4,8 @@ import pkg from '../../../../package.json';
 
 const LINKS = [
   { label: '官方网站', href: 'https://onenav.h06i.com' },
-  { label: 'GitHub', href: 'https://github.com' },
-  { label: '反馈与支持', href: 'mailto:support@onenav.app' },
+  { label: 'GitHub', href: 'https://github.com/voiceofhu/one-nav' },
+  { label: '反馈与支持', href: 'https://github.com/voiceofhu/one-nav/issues' },
 ];
 
 export function AboutSection() {

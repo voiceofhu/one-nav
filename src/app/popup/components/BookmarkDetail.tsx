@@ -1,8 +1,9 @@
 'use client';
 
+/* eslint-disable @next/next/no-img-element */
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import {
   type BookmarkNode,
   getNode,
@@ -14,7 +15,23 @@ import {
   getBookmarkMeta,
   setBookmarkMeta,
 } from '@/extension/storage';
-import { useEffect, useMemo, useState } from 'react';
+import {
+  Copy,
+  Eye,
+  EyeOff,
+  Globe2,
+  Loader2,
+  ShieldAlert,
+  ShieldCheck,
+  ShieldX,
+} from 'lucide-react';
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { toast } from 'sonner';
 
 import { usePopupState } from '../state/popup-state';
@@ -30,233 +47,386 @@ export function BookmarkDetail({
   const [node, setNode] = useState<BookmarkNode | null>(null);
   const [accounts, setAccounts] = useState<AccountCredential[]>([]);
   const [editing, setEditing] = useState(false);
+  const [draftTitle, setDraftTitle] = useState('');
+  const [draftAccounts, setDraftAccounts] = useState<AccountCredential[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [openConfirm, setOpenConfirm] = useState(false);
   const { closeDetail } = usePopupState();
 
-  useEffect(() => {
-    (async () => {
-      const n = await getNode(id);
-      setNode(n || null);
-      const meta = await getBookmarkMeta(id);
-      setAccounts(meta?.accounts || []);
-      setEditing(false);
-    })();
+  const refresh = useCallback(async () => {
+    const [n, meta] = await Promise.all([getNode(id), getBookmarkMeta(id)]);
+    setNode(n || null);
+    setAccounts(meta?.accounts || []);
   }, [id]);
 
-  const [openConfirm, setOpenConfirm] = useState(false);
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    (async () => {
+      try {
+        const [n, meta] = await Promise.all([getNode(id), getBookmarkMeta(id)]);
+        if (!active) return;
+        setNode(n || null);
+        setAccounts(meta?.accounts || []);
+        setEditing(false);
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [id]);
 
-  if (!node)
-    return <div className="text-sm text-muted-foreground">未找到书签</div>;
+  const normalizedAccounts = editing ? draftAccounts : accounts;
+  const primaryAccount = accounts[0];
+  const updatedAt = node?.dateGroupModified || node?.dateAdded;
+  const host = useMemo(() => getHost(node?.url), [node?.url]);
 
-  async function saveTitle() {
+  const startEditing = useCallback(() => {
     if (!node) return;
-    await updateBookmark(node.id, { title: node.title });
-    onMutate?.();
-  }
+    setDraftTitle(node.title || '');
+    const next =
+      accounts.length > 0
+        ? accounts.map((acc) => ({ ...acc }))
+        : [{ username: '', password: '', totp: '' }];
+    setDraftAccounts(next);
+    setEditing(true);
+  }, [accounts, node]);
 
-  async function handleDelete() {
+  const cancelEditing = useCallback(() => {
+    setEditing(false);
+    setDraftTitle('');
+    setDraftAccounts([]);
+  }, []);
+
+  const updateDraftAccount = useCallback(
+    (index: number, patch: Partial<AccountCredential>) => {
+      setDraftAccounts((prev) =>
+        prev.map((acc, i) => (i === index ? { ...acc, ...patch } : acc)),
+      );
+    },
+    [],
+  );
+
+  const removeDraftAccount = useCallback((index: number) => {
+    setDraftAccounts((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const addDraftAccount = useCallback(() => {
+    setDraftAccounts((prev) => [
+      ...prev,
+      { username: '', password: '', totp: '' },
+    ]);
+  }, []);
+
+  const handleSaveAll = useCallback(async () => {
+    if (!node) return;
+    setSaving(true);
+    try {
+      const trimmedTitle = draftTitle.trim();
+      const safeTitle = trimmedTitle || node.url || '书签';
+      await updateBookmark(node.id, { title: safeTitle });
+
+      const cleaned = draftAccounts
+        .map((acc) => ({
+          username: acc.username?.trim() || '',
+          password: acc.password || '',
+          totp: acc.totp?.trim() || '',
+          label: acc.label?.trim() || undefined,
+        }))
+        .filter((acc) => acc.username || acc.password || acc.totp || acc.label);
+
+      await setBookmarkMeta(node.id, { accounts: cleaned });
+      await refresh();
+      onMutate?.();
+      toast.success('已保存');
+      cancelEditing();
+    } catch (err) {
+      console.error(err);
+      toast.error('保存失败，请稍后再试');
+    } finally {
+      setSaving(false);
+    }
+  }, [cancelEditing, draftAccounts, draftTitle, node, onMutate, refresh]);
+
+  const handleDelete = useCallback(() => {
     if (!node) return;
     setOpenConfirm(true);
+  }, [node]);
+
+  if (!node) {
+    return (
+      <div className="p-6 text-sm text-muted-foreground">
+        {loading ? '加载中...' : '未找到书签'}
+      </div>
+    );
   }
 
+  const detailTitle = node.title?.trim() || host || '未命名书签';
+  const disableSave = saving;
+
   return (
-    <div className="space-y-4 p-4">
-      <div>
-        <div className="text-xs text-muted-foreground mb-1">标题</div>
-        <Input
-          value={node.title || ''}
-          onChange={(e) =>
-            setNode({ ...(node as BookmarkNode), title: e.target.value })
-          }
-        />
+    <div className="flex flex-col gap-3 rounded-lg p-3 text-[13px] leading-snug text-foreground">
+      <div className="rounded-xl border border-border/60 bg-card/85 p-3 shadow-sm">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-1 items-start gap-2.5">
+            <BookmarkAvatar url={node.url} title={detailTitle} size={42} />
+            <div className="min-w-0 space-y-1.5">
+              {editing ? (
+                <Input
+                  value={draftTitle}
+                  onChange={(e) => setDraftTitle(e.target.value)}
+                  placeholder="输入名称"
+                  className="h-9 rounded-lg border-none bg-muted/40 px-3 text-[14px] font-semibold focus-visible:ring-1"
+                />
+              ) : (
+                <div className="truncate text-[14px] font-semibold text-foreground">
+                  {detailTitle}
+                </div>
+              )}
+              <div className="text-[11px] text-muted-foreground">
+                上次修改时间：{formatDate(updatedAt)} · {host || '未知站点'}
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                {node.url ? (
+                  <a
+                    href={node.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex max-w-full items-center gap-1 rounded-md bg-muted/30 px-2 py-1 text-[11px] font-medium text-foreground/80 transition hover:bg-muted/60"
+                  >
+                    <span className="truncate">{node.url}</span>
+                  </a>
+                ) : (
+                  '暂无链接'
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-col items-end gap-1.5 text-[12px]">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 rounded-lg px-2 text-red-500 hover:text-red-600"
+              onClick={handleDelete}
+            >
+              删除
+            </Button>
+            {editing ? (
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 rounded-lg px-2"
+                  onClick={cancelEditing}
+                  disabled={saving}
+                >
+                  取消
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-7 rounded-lg px-3 shadow-sm"
+                  onClick={handleSaveAll}
+                  disabled={disableSave}
+                >
+                  {saving ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : null}
+                  保存
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 rounded-lg text-muted-foreground transition hover:text-foreground"
+                  onClick={() =>
+                    node.url && window.open(node.url, '_blank', 'noreferrer')
+                  }
+                  title="在新标签页打开"
+                >
+                  <Globe2 className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-7 rounded-lg px-3 shadow-sm"
+                  onClick={startEditing}
+                >
+                  编辑
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
-      <div>
-        <div className="text-xs text-muted-foreground mb-1">链接</div>
-        <a
-          className="text-sm underline break-all"
-          href={node.url}
-          target="_blank"
-          rel="noreferrer"
-        >
-          {node.url}
-        </a>
+
+      <div className="rounded-xl border border-border/50 bg-card/70 p-3 shadow-sm">
+        <div className="mb-2 flex items-center justify-between text-[12px] font-medium text-muted-foreground">
+          <span>账号信息</span>
+          {!editing && normalizedAccounts.length > 0 ? (
+            <span className="text-[11px] font-normal text-muted-foreground/80">
+              共 {normalizedAccounts.length} 个账号
+            </span>
+          ) : null}
+        </div>
+        {!editing ? (
+          <div className="space-y-2.5">
+            {normalizedAccounts.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 px-3 py-5 text-center text-[12px] text-muted-foreground">
+                暂未保存账号信息
+              </div>
+            ) : (
+              normalizedAccounts.map((acc, index) => (
+                <AccountCard
+                  key={`${acc.username}-${index}`}
+                  account={acc}
+                  title={detailTitle}
+                  url={node.url || ''}
+                  host={host}
+                  updatedAt={updatedAt}
+                />
+              ))
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {draftAccounts.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 px-3 py-5 text-center text-[12px] text-muted-foreground">
+                暂无账号，请点击下方按钮添加
+              </div>
+            ) : (
+              draftAccounts.map((acc, index) => (
+                <EditableAccountCard
+                  key={index}
+                  index={index}
+                  account={acc}
+                  host={host}
+                  onChange={updateDraftAccount}
+                  onRemove={removeDraftAccount}
+                />
+              ))
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full rounded-lg border-dashed border-border/60 py-4 text-sm font-medium text-muted-foreground hover:border-border hover:text-foreground"
+              onClick={addDraftAccount}
+            >
+              + 添加账号
+            </Button>
+          </div>
+        )}
       </div>
-      <div className="flex items-center gap-2">
-        <Button size="sm" onClick={saveTitle}>
-          保存
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => {
-            if (node?.url) window.open(node.url, '_blank', 'noreferrer');
-          }}
-        >
-          打开
-        </Button>
-        <Button size="sm" variant="destructive" onClick={handleDelete}>
-          删除
-        </Button>
-      </div>
+
+      {!editing && primaryAccount ? (
+        <SecurityCard account={primaryAccount} />
+      ) : null}
+
       <ConfirmDrawer
         open={openConfirm}
         onOpenChange={setOpenConfirm}
         title="确认删除书签"
         description={
           <span>
-            将永久删除“<strong>{node.title || node.url}</strong>
-            ”。此操作不可撤销。
+            将长期删除“<strong>{detailTitle}</strong>”。此操作不可撤销。
           </span>
         }
         onConfirm={async () => {
-          if (!node) return;
           await removeBookmark(node.id);
           onMutate?.();
           closeDetail();
         }}
       />
-
-      <Separator className="my-2" />
-
-      <div className="flex items-center justify-between">
-        <div className="font-medium text-sm">账号与安全</div>
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setEditing((v) => !v)}
-          >
-            {editing ? '完成' : '编辑'}
-          </Button>
-          {editing && (
-            <Button
-              size="sm"
-              onClick={async () => {
-                await setBookmarkMeta(id, { accounts });
-                toast.success('已保存账号');
-                setEditing(false);
-              }}
-            >
-              保存账号
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {!editing ? (
-        <div className="space-y-3">
-          {accounts.length === 0 ? (
-            <div className="text-xs text-muted-foreground">暂无账号信息</div>
-          ) : (
-            accounts.map((acc, i) => (
-              <AccountCard
-                key={i}
-                account={acc}
-                title={node.title || ''}
-                url={node.url || ''}
-                updatedAt={node.dateGroupModified || node.dateAdded}
-              />
-            ))
-          )}
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {accounts.map((acc, i) => (
-            <div key={i} className="rounded-lg border p-3 space-y-2">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <Input
-                  placeholder="账号/用户名"
-                  value={acc.username}
-                  onChange={(e) =>
-                    setAccounts((arr) =>
-                      arr.map((a, idx) =>
-                        idx === i ? { ...a, username: e.target.value } : a,
-                      ),
-                    )
-                  }
-                />
-                <Input
-                  placeholder="密码"
-                  type="text"
-                  value={acc.password}
-                  onChange={(e) =>
-                    setAccounts((arr) =>
-                      arr.map((a, idx) =>
-                        idx === i ? { ...a, password: e.target.value } : a,
-                      ),
-                    )
-                  }
-                />
-              </div>
-              <Input
-                placeholder="otpauth:// 或密钥"
-                value={acc.totp || ''}
-                onChange={(e) =>
-                  setAccounts((arr) =>
-                    arr.map((a, idx) =>
-                      idx === i ? { ...a, totp: e.target.value } : a,
-                    ),
-                  )
-                }
-              />
-              <div className="flex items-center justify-end">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    setAccounts((arr) => arr.filter((_, idx) => idx !== i))
-                  }
-                >
-                  删除此账号
-                </Button>
-              </div>
-            </div>
-          ))}
-          <div>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() =>
-                setAccounts((arr) => [
-                  ...arr,
-                  { username: '', password: '', totp: '' },
-                ])
-              }
-            >
-              + 添加账号
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   );
+}
+
+function SecurityCard({ account }: { account: AccountCredential }) {
+  const status = assessSecurity(account);
+  if (!status) return null;
+
+  const tone =
+    status === 'strong'
+      ? {
+          icon: <ShieldCheck className="h-5 w-5" />,
+          title: '强密码与验证码',
+          description:
+            '此密码较长、不易猜到且唯一。配合验证码可在密码被盗时保护账号。',
+          className:
+            'rounded-xl border border-emerald-400/60 bg-emerald-50/90 px-3 py-3 text-[12px] text-emerald-800 shadow-sm dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-100',
+        }
+      : status === 'medium'
+        ? {
+            icon: <ShieldAlert className="h-5 w-5" />,
+            title: '安全性一般',
+            description: '建议同时使用强密码与验证码来提升账号安全性。',
+            className:
+              'rounded-xl border border-amber-300/60 bg-amber-50/90 px-3 py-3 text-[12px] text-amber-800 shadow-sm dark:border-amber-300/30 dark:bg-amber-500/10 dark:text-amber-100',
+          }
+        : {
+            icon: <ShieldX className="h-5 w-5" />,
+            title: '安全性较弱',
+            description: '尚未配置强密码或验证码，请尽快完善账号安全设置。',
+            className:
+              'rounded-xl border border-rose-300/60 bg-rose-50/90 px-3 py-3 text-[12px] text-rose-800 shadow-sm dark:border-rose-300/30 dark:bg-rose-500/10 dark:text-rose-100',
+          };
+
+  return (
+    <div className={tone.className}>
+      <div className="flex items-start gap-2.5">
+        <div className="mt-0.5">{tone.icon}</div>
+        <div>
+          <div className="text-[13px] font-semibold">{tone.title}</div>
+          <p className="mt-0.5 text-[12px] leading-relaxed text-current/80">
+            {tone.description}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function assessSecurity(
+  account: AccountCredential,
+): 'strong' | 'medium' | 'weak' | null {
+  const pwd = account.password?.trim() ?? '';
+  const hasPassword = pwd.length > 0;
+  const hasStrongPassword =
+    hasPassword &&
+    pwd.length >= 12 &&
+    /[0-9]/.test(pwd) &&
+    /[A-Za-z]/.test(pwd);
+  const hasTotp = Boolean(account.totp?.trim());
+  if (!hasPassword && !hasTotp) return null;
+  if (hasStrongPassword && hasTotp) return 'strong';
+  if (hasStrongPassword || hasTotp) return 'medium';
+  return 'weak';
 }
 
 function AccountCard({
   account,
   title,
   url,
+  host,
   updatedAt,
 }: {
   account: AccountCredential;
   title: string;
   url: string;
+  host: string;
   updatedAt?: number;
 }) {
-  const initials = useMemo(
-    () => (title?.trim()?.[0] || 'B').toUpperCase(),
-    [title],
-  );
-  const host = useMemo(() => {
-    try {
-      return new URL(url).hostname.replace(/^www\./, '');
-    } catch {
-      return url;
-    }
-  }, [url]);
-
+  const [showPassword, setShowPassword] = useState(false);
   const { code, progress } = useTotp(account.totp);
 
   async function copy(text: string, label: string) {
+    if (!text) {
+      toast.error(`${label}为空`);
+      return;
+    }
     try {
       await navigator.clipboard.writeText(text);
       toast.success(`${label}已复制`);
@@ -266,78 +436,385 @@ function AccountCard({
   }
 
   return (
-    <div className="rounded-xl border bg-card text-card-foreground p-3">
-      <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center text-sm font-semibold select-none">
-          {initials}
-        </div>
+    <div className="rounded-lg border border-border/60 bg-background/70 p-3 shadow-sm">
+      <div className="flex items-start gap-2.5">
+        <BookmarkAvatar url={url} title={title} size={36} />
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium truncate">{title || host}</div>
-          {updatedAt && (
-            <div className="text-xs text-muted-foreground">
-              上次修改时间：{formatDate(updatedAt)}
+          <div className="flex flex-wrap items-center justify-between gap-2.5 text-[13px]">
+            <div className="min-w-0">
+              <div className="truncate text-[13px] font-semibold text-foreground">
+                {account.label || title || host}
+              </div>
+              {updatedAt && (
+                <div className="text-[11px] text-muted-foreground">
+                  上次修改时间：{formatDate(updatedAt)}
+                </div>
+              )}
             </div>
-          )}
+            {url ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 rounded-lg px-2 text-[12px]"
+                onClick={() => window.open(url, '_blank', 'noreferrer')}
+              >
+                打开
+              </Button>
+            ) : null}
+          </div>
         </div>
       </div>
-      <Separator className="my-3" />
-      <div className="space-y-2 text-sm">
-        <Row label="用户名">
-          <button
-            className="truncate hover:underline"
-            title="点击复制用户名"
-            onClick={() => copy(account.username, '用户名')}
+
+      <div className="mt-3">
+        <FieldSection>
+          <FieldRow
+            label="用户名"
+            actions={
+              account.username ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 rounded-md text-muted-foreground hover:text-foreground"
+                  onClick={() => copy(account.username, '用户名')}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              ) : undefined
+            }
           >
-            {account.username || '—'}
-          </button>
-        </Row>
-        <Row label="密码">
-          <button
-            className="group font-mono"
-            title="点击复制密码"
-            onClick={() => copy(account.password, '密码')}
+            <span className="truncate">{account.username || '—'}</span>
+          </FieldRow>
+
+          <FieldRow
+            label="密码"
+            actions={
+              account.password ? (
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowPassword((value) => !value)}
+                    title={showPassword ? '隐藏密码' : '显示密码'}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-3.5 w-3.5" />
+                    ) : (
+                      <Eye className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
+                    onClick={() => copy(account.password, '密码')}
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : undefined
+            }
           >
-            <span className="group-hover:hidden select-none">
-              {maskPassword(account.password)}
+            <span className="font-mono text-[13px]">
+              {showPassword
+                ? account.password || '—'
+                : maskPassword(account.password)}
             </span>
-            <span className="hidden group-hover:inline">
-              {account.password || '—'}
-            </span>
-          </button>
-        </Row>
-        <Row label="验证码">
-          {account.totp ? (
-            <div className="flex items-center gap-2 font-mono">
-              <TotpRing progress={progress} />
-              <span className="tracking-widest select-none">
-                {code.slice(0, 3)} {code.slice(3)}
-              </span>
-            </div>
-          ) : (
-            <span className="text-muted-foreground">未配置</span>
-          )}
-        </Row>
-        <Row label="网站">
-          <span className="truncate">{host}</span>
-        </Row>
+          </FieldRow>
+
+          <FieldRow
+            label="验证码"
+            actions={
+              account.totp ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 rounded-md text-muted-foreground hover:text-foreground"
+                  onClick={() => copy(code, '验证码')}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              ) : undefined
+            }
+          >
+            {account.totp ? (
+              <div className="flex items-center gap-1.5 font-mono text-[13px]">
+                <TotpRing progress={progress} />
+                <span className="tracking-widest select-none">
+                  {code.slice(0, 3)} {code.slice(3)}
+                </span>
+              </div>
+            ) : (
+              <span className="text-muted-foreground">未配置</span>
+            )}
+          </FieldRow>
+
+          <FieldRow
+            label="网站"
+            actions={
+              host ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
+                  onClick={() => copy(host, '网站')}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              ) : undefined
+            }
+          >
+            <span className="truncate">{host || '—'}</span>
+          </FieldRow>
+        </FieldSection>
       </div>
     </div>
   );
 }
 
-function Row({
-  label,
-  children,
+function EditableAccountCard({
+  index,
+  account,
+  host,
+  onChange,
+  onRemove,
 }: {
-  label: string;
-  children: React.ReactNode;
+  index: number;
+  account: AccountCredential;
+  host: string;
+  onChange: (index: number, patch: Partial<AccountCredential>) => void;
+  onRemove: (index: number) => void;
 }) {
+  async function handleCopy(value: string, label: string) {
+    if (!value) {
+      toast.error(`${label}为空`);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(`${label}已复制`);
+    } catch {
+      toast.error('复制失败');
+    }
+  }
+
+  async function pasteTotp() {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text) {
+        toast.error('剪贴板为空');
+        return;
+      }
+      onChange(index, { totp: text.trim() });
+      toast.success('已粘贴验证码');
+    } catch {
+      toast.error('读取剪贴板失败');
+    }
+  }
+
   return (
-    <div className="grid grid-cols-4 gap-2 items-center">
-      <div className="col-span-1 text-xs text-muted-foreground">{label}</div>
-      <div className="col-span-3 min-w-0">{children}</div>
+    <div className="space-y-2.5 rounded-lg border border-border/60 bg-background/60 p-3 shadow-sm">
+      <div className="flex items-center justify-between text-[13px] font-semibold text-foreground">
+        <span>账号 {index + 1}</span>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 rounded-lg px-2 text-muted-foreground hover:text-red-500"
+          onClick={() => onRemove(index)}
+        >
+          删除账号
+        </Button>
+      </div>
+      <FieldSection>
+        <FieldRow label="显示名称">
+          <Input
+            value={account.label || ''}
+            placeholder="可选：例如主账号"
+            onChange={(e) => onChange(index, { label: e.target.value })}
+            className="h-8 rounded-lg border-none bg-muted/40 px-3 text-[13px] focus-visible:ring-1"
+          />
+        </FieldRow>
+        <FieldRow label="用户名">
+          <Input
+            value={account.username}
+            placeholder="guaguadm@gmail.com"
+            onChange={(e) => onChange(index, { username: e.target.value })}
+            className="h-8 rounded-lg border-none bg-muted/40 px-3 text-[13px] focus-visible:ring-1"
+          />
+        </FieldRow>
+        <FieldRow label="密码">
+          <Input
+            type="text"
+            value={account.password}
+            placeholder="填写密码"
+            onChange={(e) => onChange(index, { password: e.target.value })}
+            className="h-8 rounded-lg border-none bg-muted/40 px-3 text-[13px] focus-visible:ring-1"
+          />
+        </FieldRow>
+        <FieldRow
+          label="验证码"
+          actions={
+            account.totp ? (
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 rounded-lg px-2"
+                  onClick={() => onChange(index, { totp: '' })}
+                >
+                  删除验证码
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 rounded-lg px-2"
+                  onClick={() => handleCopy(account.totp || '', '验证码设置')}
+                >
+                  拷贝设置 URL
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 rounded-lg px-2"
+                onClick={pasteTotp}
+              >
+                粘贴验证码
+              </Button>
+            )
+          }
+        >
+          <Textarea
+            value={account.totp || ''}
+            placeholder="otpauth:// 或密钥"
+            rows={2}
+            onChange={(e) => onChange(index, { totp: e.target.value })}
+            className="min-h-[60px] rounded-lg border-none bg-muted/40 px-3 text-[13px] focus-visible:ring-1"
+          />
+        </FieldRow>
+        <FieldRow label="网站">
+          <div className="flex items-center justify-between gap-3 text-[13px] text-muted-foreground">
+            <span className="truncate">{host || '—'}</span>
+            {host ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 rounded-lg px-2 text-muted-foreground hover:text-foreground"
+                onClick={() => handleCopy(host, '网站')}
+              >
+                复制
+              </Button>
+            ) : null}
+          </div>
+        </FieldRow>
+      </FieldSection>
     </div>
   );
+}
+
+function FieldSection({ children }: { children: ReactNode }) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-border/50 bg-muted/10">
+      {children}
+    </div>
+  );
+}
+
+function FieldRow({
+  label,
+  children,
+  actions,
+}: {
+  label: string;
+  children: ReactNode;
+  actions?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5 border-b border-border/40 px-2.5 py-2 last:border-b-0 sm:flex-row sm:items-center sm:gap-3.5 sm:px-3 sm:py-2.5">
+      <div className="text-[11px] font-medium text-muted-foreground sm:w-20">
+        {label}
+      </div>
+      <div className="min-w-0 flex-1 text-[13px]">{children}</div>
+      {actions ? (
+        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-1.5">
+          {actions}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function BookmarkAvatar({
+  url,
+  title,
+  size = 48,
+}: {
+  url?: string | null;
+  title?: string | null;
+  size?: number;
+}) {
+  const [candidateIndex, setCandidateIndex] = useState(0);
+  const [failed, setFailed] = useState(false);
+
+  const candidates = useMemo(() => getFaviconCandidates(url), [url]);
+  const src = candidates[candidateIndex];
+  const initials = (title?.trim()?.[0] || 'B').toUpperCase();
+
+  useEffect(() => {
+    setCandidateIndex(0);
+    setFailed(false);
+  }, [url]);
+
+  if (!src || failed) {
+    return (
+      <div
+        className="flex shrink-0 items-center justify-center rounded-2xl bg-muted/40 text-base font-semibold text-muted-foreground"
+        style={{ height: size, width: size }}
+      >
+        {initials}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt="favicon"
+      className="shrink-0 rounded-2xl border border-border/60 bg-background object-cover"
+      style={{ height: size, width: size }}
+      onError={() => {
+        if (candidateIndex < candidates.length - 1) {
+          setCandidateIndex((prev) => prev + 1);
+        } else {
+          setFailed(true);
+        }
+      }}
+    />
+  );
+}
+
+function getFaviconCandidates(url?: string | null): string[] {
+  if (!url) return [];
+  try {
+    const u = new URL(url);
+    const domainUrl = `${u.protocol}//${u.hostname}`;
+    return [
+      `https://www.google.com/s2/favicons?sz=128&domain_url=${encodeURIComponent(domainUrl)}`,
+      `${domainUrl}/favicon.ico`,
+    ];
+  } catch {
+    return [];
+  }
+}
+
+function getHost(url?: string | null) {
+  if (!url) return '';
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
 }
 
 function maskPassword(pwd: string) {
@@ -356,14 +833,10 @@ function formatDate(ts?: number) {
 }
 
 function TotpRing({ progress }: { progress: number }) {
-  // progress: 0..1
   const pct = Math.max(0, Math.min(1, progress)) * 100;
   return (
     <div className="relative h-4 w-4">
-      <div
-        className="absolute inset-0 rounded-full"
-        style={{ background: '#e5e7eb' }}
-      />
+      <div className="absolute inset-0 rounded-full bg-muted" />
       <div
         className="absolute inset-0 rounded-full"
         style={{ background: `conic-gradient(#22c55e ${pct}%, transparent 0)` }}
@@ -378,7 +851,6 @@ function useTotp(input?: string) {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    // interval id; const is fine since we don't reassign
     let mounted = true;
     async function tick() {
       const { secret, period, digits } = parseTotp(input);

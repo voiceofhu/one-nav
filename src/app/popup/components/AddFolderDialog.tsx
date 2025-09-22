@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import {
   Drawer,
   DrawerContent,
+  DrawerDescription,
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer';
@@ -92,7 +93,7 @@ export function AddFolderDialog({
   });
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
+    <Drawer direction="right" open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="sm:max-w-lg overflow-hidden border border-white/30 bg-white shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/80">
         <Form {...form}>
           <form onSubmit={handleSubmit} className="flex h-full flex-col">
@@ -109,6 +110,9 @@ export function AddFolderDialog({
               <DrawerTitle className="flex-1 text-center text-base font-semibold">
                 新文件夹
               </DrawerTitle>
+              <DrawerDescription className="sr-only">
+                为新目录命名并选择所属位置后保存。
+              </DrawerDescription>
               <Button
                 type="submit"
                 size="sm"
@@ -197,6 +201,7 @@ function FolderTree({
           >
             {hasSubfolder(n) ? (
               <button
+                type="button"
                 className={
                   'mr-1 rounded-md p-0.5 transition-colors ' +
                   (selected === n.id

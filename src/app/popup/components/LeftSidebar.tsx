@@ -1,11 +1,10 @@
 'use client';
 
-import { SidebarContent } from '@/components/ui/sidebar';
-import { useEffect, useState } from 'react';
+import { SidebarContent, SidebarHeader } from '@/components/ui/sidebar';
+import { Bookmark } from 'lucide-react';
 
 import { CategoriesMenu } from '../components/CategoriesMenu';
 import { QuickMenu } from '../components/QuickMenu';
-import { SidebarHeaderSearch } from '../components/SidebarHeaderSearch';
 import { TagsMenu } from '../components/TagsMenu';
 import {
   useInvalidatePopupData,
@@ -16,39 +15,28 @@ import { usePopupState } from '../state/popup-state';
 import { FolderFooter } from './FolderFooter';
 
 export default function LeftSidebar() {
-  const {
-    view,
-    categoryId,
-    tag,
-    query: activeQuery,
-    setView,
-    runSearch,
-    setModal,
-  } = usePopupState();
-  const [query, setQuery] = useState(activeQuery);
+  const { view, categoryId, tag, setView, setModal } = usePopupState();
   const { categories } = usePopupCategories();
   const { tags } = usePopupTags();
   const invalidate = useInvalidatePopupData();
-
-  useEffect(() => {
-    setQuery(activeQuery);
-  }, [activeQuery]);
 
   const activeQuick = view === 'all' || view === 'recents' ? view : null;
   const activeCategoryId = view === 'category' ? categoryId : undefined;
   const activeTagName = view === 'tag' ? tag : undefined;
 
-  function handleSearch() {
-    runSearch(query);
-  }
-
   return (
     <>
-      <SidebarHeaderSearch
-        query={query}
-        onQueryChange={setQuery}
-        onSearch={handleSearch}
-      />
+      <SidebarHeader className="px-4 pt-4 pb-2">
+        <div className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+          {/* <Bookmark className="h-5 w-5 text-primary" /> */}
+          {/* OneNav */}
+          <img src="/header.png" alt="" className="h-9 " />
+        </div>
+        {/* <p className="flex items-center gap-1 text-xs text-muted-foreground">
+          <Bookmark className="h-3.5 w-3.5 opacity-70" />
+          高效管理你的书签
+        </p> */}
+      </SidebarHeader>
 
       <SidebarContent className="px-2 text-[12px]">
         <QuickMenu

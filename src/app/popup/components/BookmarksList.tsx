@@ -16,7 +16,7 @@ import {
 } from '@/extension/data';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
-import { Code2, Info, MoreHorizontal } from 'lucide-react';
+import { Code2, MoreHorizontal } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { usePopupState } from '../state/popup-state';
@@ -65,7 +65,7 @@ function renderList(
   }
   return (
     <ul
-      className="space-y-1 mt-2 divide-y "
+      className="mt-1.5 space-y-1.5 px-1"
       onDragOver={(e) => {
         // allow drop at end of list
         if (sortableParentId) e.preventDefault();
@@ -87,7 +87,7 @@ function renderList(
         }
       }}
     >
-      {items.map((b, idx) => (
+      {items.map((b) => (
         <BookmarkRow
           key={b.id}
           node={b}
@@ -112,6 +112,7 @@ function BookmarkRow({
   const isScript = url.trim().toLowerCase().startsWith('javascript:');
   const title = node.title || url;
   const popup = usePopupState();
+  const isActive = popup.detailId === node.id;
 
   const timeText = useMemo(() => {
     const d = node.dateAdded;
@@ -130,10 +131,6 @@ function BookmarkRow({
     popup.openDetail(node.id);
   }
 
-  async function handleEdit() {
-    popup.openDetail(node.id);
-  }
-
   async function handleDelete() {
     setConfirmOpen(true);
   }
@@ -143,8 +140,11 @@ function BookmarkRow({
   const RowInner = (
     <div
       className={
-        'group flex items-center gap-3 px-4 pb-1  ' +
-        (sortableParentId ? 'cursor-grab active:cursor-grabbing' : '')
+        'flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-[13px] shadow-sm transition hover:border-border hover:bg-card hover:shadow-md ' +
+        (isActive
+          ? 'border-primary/70 bg-primary/10'
+          : 'border-border/60 bg-card/70') +
+        (sortableParentId ? ' cursor-grab active:cursor-grabbing' : '')
       }
       draggable={Boolean(sortableParentId)}
       onDragStart={(e) => {
@@ -182,69 +182,41 @@ function BookmarkRow({
         }
       }}
     >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/60 bg-white/80 shadow-inner dark:border-white/10 dark:bg-slate-900/60">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-background/40 shadow-inner dark:bg-slate-900/60">
         <BookmarkIcon url={url} isScript={isScript} />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <OverflowTooltipCell
             text={title}
             tooltipText={title}
-            className="truncate text-[13px] font-bold text-[#333] w-full"
+            className="w-full truncate text-[13px] font-semibold text-foreground"
           />
-          <div className="flex items-center gap-1">
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-4 cursor-pointer"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                  >
-                    <MoreHorizontal className="size-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" sideOffset={4}>
-                  <DropdownMenuItem onClick={handleEdit}>
-                    重命名
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={handleDelete}
-                    className="text-red-600 focus:text-red-600"
-                  >
-                    删除
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-4 cursor-pointer"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  gotoDetail();
-                }}
-              >
-                <Info className="size-4" />
-              </Button>
-            </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              variant={isActive ? 'default' : 'secondary'}
+              size="sm"
+              className="h-7 rounded-lg px-2 text-[11px]"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                gotoDetail();
+              }}
+            >
+              {isActive ? '查看中' : '详情'}
+            </Button>
           </div>
         </div>
-        <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
+        <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
           <OverflowTooltipCell
             text={url}
             tooltipText={url}
-            className="min-w-0 truncate text-[#999]"
+            className="min-w-0 truncate"
           />
           {timeText && (
-            <span className="shrink-0 text-[#999] text-[10px]">{timeText}</span>
+            <span className="shrink-0 text-muted-foreground/75">
+              {timeText}
+            </span>
           )}
         </div>
       </div>
@@ -261,20 +233,20 @@ function BookmarkRow({
       ) : (
         RowInner
       )}
-      <ConfirmDrawer
+      {/* <ConfirmDrawer
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         title="确认删除书签"
         description={
           <span>
-            将永久删除“<strong>{title}</strong>”。此操作不可撤销。
+            将长期删除“<strong>{title}</strong>”。此操作不可撤销。
           </span>
         }
         onConfirm={async () => {
           await removeBookmark(node.id);
           onMutate?.();
         }}
-      />
+      /> */}
     </li>
   );
 }
@@ -306,7 +278,7 @@ function BookmarkIcon({ url, isScript }: { url: string; isScript: boolean }) {
 
   return (
     <img
-      className="size-7 object-cover"
+      className="size-6 object-cover"
       src={resolvedSrc ?? '/globe.svg'}
       alt="favicon"
       onError={handleError}

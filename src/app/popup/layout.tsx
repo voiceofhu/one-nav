@@ -6,38 +6,58 @@ import {
   SidebarProvider,
 } from '@/components/ui/sidebar';
 import clsx from 'clsx';
-import { type CSSProperties, Suspense, useEffect } from 'react';
+import { type CSSProperties, Suspense, useEffect, useState } from 'react';
 
 import LeftSidebar from './components/LeftSidebar';
 import { PopupDataListener } from './state/popup-data-listener';
 import { PopupStateProvider } from './state/popup-state';
 
-const POPUP_WIDTH = 615;
-const POPUP_HEIGHT = 560;
-const SIDEBAR_WIDTH = 170;
+const POPUP_WIDTH = 800;
+const POPUP_HEIGHT = 600;
+const SIDEBAR_WIDTH = 164;
 
 export default function PopupLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
-    window.addEventListener('unhandledrejection', (e) => {
+    setMounted(true);
+    const handleUnhandledRejection = (e: PromiseRejectionEvent) => {
       console.error('Unhandled rejection:', e.reason);
-    });
-    window.addEventListener('error', (e) => {
+    };
+    const handleWindowError = (e: ErrorEvent) => {
       console.error('Window error:', e.error || e.message);
-    });
+    };
+
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    window.addEventListener('error', handleWindowError);
+
+    return () => {
+      window.removeEventListener(
+        'unhandledrejection',
+        handleUnhandledRejection,
+      );
+      window.removeEventListener('error', handleWindowError);
+    };
   }, []);
+
+  if (!mounted) {
+    return <div className="p-4 text-sm text-muted-foreground">加载中...</div>;
+  }
   return (
     <Suspense fallback={<div className="p-4">Loading...</div>}>
       <PopupStateProvider>
         <SidebarProvider
-          className="relative overflow-hidden"
+          className="relative overflow-hidden text-[13px] leading-tight"
           style={
             {
               width: POPUP_WIDTH,
               height: POPUP_HEIGHT,
+              maxWidth: POPUP_WIDTH,
+              maxHeight: POPUP_HEIGHT,
               ['--sidebar-width' as unknown as string]: `${SIDEBAR_WIDTH}px`,
             } as CSSProperties
           }
@@ -51,10 +71,9 @@ export default function PopupLayout({
           {/* 主体结构：左侧 Sidebar + 右侧 Inset（children） */}
           <div className="relative z-10 flex h-full w-full">
             <Sidebar
-              collapsible="none"
-              variant="floating"
+              // collapsible="offcanvas"
               className={clsx(
-                'border-r bg-background/40 backdrop-blur pointer-events-auto',
+                ' pointer-events-auto bg-transparent p-0 rounded-none',
               )}
             >
               <Suspense
@@ -68,7 +87,7 @@ export default function PopupLayout({
               </Suspense>
             </Sidebar>
 
-            <SidebarInset className="h-full overflow-auto bg-background/60">
+            <SidebarInset className="flex h-full flex-1 overflow-hidden ">
               <Suspense
                 fallback={
                   <div className="text-sm p-4 text-muted-foreground">
