@@ -103,8 +103,8 @@ export default function PopupPage() {
 
   return (
     <>
-      <div className="flex h-full w-full bg-background/70 text-[13px]">
-        <div className="flex h-full w-[300px] min-w-[280px] flex-col border-r border-border/50 bg-background/80 backdrop-blur">
+      <div className="flex h-full w-full  text-[13px]">
+        <div className="flex h-full w-[300px] min-w-[280px] flex-col border-r border-border/50  backdrop-blur">
           <Suspense
             fallback={
               <div className="text-sm p-4 text-muted-foreground">加载中...</div>
@@ -137,9 +137,9 @@ export default function PopupPage() {
             </Suspense>
           </div>
         </div>
-        <div className="flex h-full min-w-[340px] flex-1 flex-col bg-background/50 backdrop-blur-sm">
+        <div className="flex h-full min-w-[340px] flex-1 flex-col  backdrop-blur-sm">
           <div className="flex h-full flex-col">
-            <div className="flex-1 overflow-y-auto px-4 pb-5 pt-4">
+            <div className="flex-1 overflow-y-auto pb-5">
               <Suspense
                 fallback={
                   <div className="text-sm p-4 text-muted-foreground">
