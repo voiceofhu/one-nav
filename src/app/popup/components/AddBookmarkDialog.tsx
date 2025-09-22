@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { type BookmarkNode, addBookmark, getActiveTab } from '@/extension/data';
 import { AccountCredential, setBookmarkMeta } from '@/extension/storage';
@@ -26,7 +27,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Folder } from 'lucide-react';
 import { ChevronDown, ChevronRight, QrCode } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type MutableRefObject,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -40,6 +47,8 @@ type Props = {
   onCreated?: (b: BookmarkNode) => void;
 };
 
+type SectionKey = 'basic' | 'location' | 'accounts';
+
 export function AddBookmarkDialog({
   open,
   onOpenChange,
@@ -51,6 +60,37 @@ export function AddBookmarkDialog({
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const [activeSection, setActiveSection] = useState<SectionKey>('basic');
+  const contentRef = useRef<HTMLDivElement>(null);
+  const basicSectionRef = useRef<HTMLDivElement>(null);
+  const locationSectionRef = useRef<HTMLDivElement>(null);
+  const accountsSectionRef = useRef<HTMLDivElement>(null);
+
+  const sections = useMemo(
+    () =>
+      [
+        {
+          value: 'basic' as SectionKey,
+          label: '基础信息',
+          ref: basicSectionRef,
+        },
+        {
+          value: 'location' as SectionKey,
+          label: '保存位置',
+          ref: locationSectionRef,
+        },
+        {
+          value: 'accounts' as SectionKey,
+          label: '账号安全',
+          ref: accountsSectionRef,
+        },
+      ] satisfies {
+        value: SectionKey;
+        label: string;
+        ref: MutableRefObject<HTMLDivElement | null>;
+      }[],
+    [basicSectionRef, locationSectionRef, accountsSectionRef],
+  );
 
   const schema = useMemo(
     () =>
@@ -103,8 +143,35 @@ export function AddBookmarkDialog({
       const firstLayer = new Set<string>();
       for (const n of t?.[0]?.children || []) if (!n.url) firstLayer.add(n.id);
       setExpanded(firstLayer);
+      setActiveSection('basic');
+      if (contentRef.current) {
+        contentRef.current.scrollTo({ top: 0 });
+      }
     })();
   }, [open, currentFolderId, form, queryClient]);
+
+  useEffect(() => {
+    const container = contentRef.current;
+    if (!container) return;
+    const handleScroll = () => {
+      const containerTop = container.getBoundingClientRect().top;
+      let current: SectionKey = 'basic';
+      for (const section of sections) {
+        const node = section.ref.current;
+        if (!node) continue;
+        const offset = node.getBoundingClientRect().top - containerTop;
+        if (offset <= 56) {
+          current = section.value;
+        }
+      }
+      setActiveSection((prev) => (prev === current ? prev : current));
+    };
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+    };
+  }, [sections]);
 
   const handleSubmit = form.handleSubmit(async (values) => {
     setSaving(true);
@@ -157,6 +224,20 @@ export function AddBookmarkDialog({
     }
   }
 
+  function handleSectionChange(value: string) {
+    const section = sections.find((item) => item.value === value);
+    if (!section) return;
+    setActiveSection(section.value);
+    const container = contentRef.current;
+    const target = section.ref.current;
+    if (!container || !target) return;
+    const containerRect = container.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const nextTop =
+      targetRect.top - containerRect.top + container.scrollTop - 12;
+    container.scrollTo({ top: Math.max(0, nextTop), behavior: 'smooth' });
+  }
+
   return (
     <Drawer direction="right" open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="sm:max-w-[600px] overflow-hidden border border-white/30 bg-white shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/80 ">
@@ -190,152 +271,204 @@ export function AddBookmarkDialog({
                 保存
               </Button>
             </DrawerHeader>
-            <div className="flex-1 space-y-4 overflow-y-auto px-5 pb-5 pt-4">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>名称</FormLabel>
-                      <FormControl>
-                        <Input className="h-8 text-[13px]" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="url"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>网址</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          className="h-auto min-h-8 text-[13px]"
-                          rows={2}
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <FormField
-                control={form.control}
-                name="parentId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>位置</FormLabel>
-                    <div className="max-h-72 overflow-hidden rounded-xl border border-dashed border-primary/20 bg-primary/5">
-                      <div className="max-h-72 overflow-auto px-1 py-1">
-                        <FolderTree
-                          nodes={tree?.[0]?.children ?? []}
-                          selected={field.value}
-                          onSelect={(id) => field.onChange(id)}
-                          expanded={expanded}
-                          onToggle={(id) => {
-                            const s = new Set(expanded);
-                            if (s.has(id)) s.delete(id);
-                            else s.add(id);
-                            setExpanded(s);
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="font-medium text-sm">账号与安全</div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  type="button"
-                  className="border-dashed"
-                  onClick={addAccount}
-                >
-                  + 添加账号
-                </Button>
-              </div>
-              {(fields.length === 0 && (
-                <div className="text-xs text-muted-foreground">
-                  可选：为该网站添加一个或多个账号密码，并可附加 TOTP
-                </div>
-              )) || (
-                <div className="space-y-3">
-                  {fields.map((acc, i) => (
-                    <div
-                      key={acc.id}
-                      className="space-y-3 rounded-xl border border-border/60 bg-white/70 p-3 shadow-sm dark:bg-slate-950/40"
+            <div
+              ref={contentRef}
+              className="flex-1 overflow-y-auto px-5 pb-6 pt-4"
+            >
+              <Tabs
+                value={activeSection}
+                onValueChange={handleSectionChange}
+                className="sticky top-0 z-20 bg-white/95 pb-2 backdrop-blur-md dark:bg-slate-950/85"
+              >
+                <TabsList className="w-full justify-start gap-2 bg-muted/60 px-2 py-1">
+                  {sections.map((section) => (
+                    <TabsTrigger
+                      key={section.value}
+                      value={section.value}
+                      className="flex-1 whitespace-nowrap px-3 py-1 text-[12px]"
                     >
-                      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                        <Input
-                          placeholder="账号/用户名"
-                          className="h-8 text-[13px]"
-                          value={form.getValues(`accounts.${i}.username`) || ''}
-                          onChange={(e) =>
-                            updateAccount(i, { username: e.target.value })
-                          }
-                        />
-                        <Input
-                          placeholder="密码"
-                          type="password"
-                          className="h-8 text-[13px]"
-                          value={form.getValues(`accounts.${i}.password`) || ''}
-                          onChange={(e) =>
-                            updateAccount(i, { password: e.target.value })
-                          }
-                        />
-                      </div>
-                      <div className="grid grid-cols-1 items-center gap-2 md:grid-cols-12">
-                        <Input
-                          className="h-8 text-[13px] md:col-span-8"
-                          placeholder="otpauth:// 或密钥"
-                          value={form.getValues(`accounts.${i}.totp`) || ''}
-                          onChange={(e) =>
-                            updateAccount(i, { totp: e.target.value })
-                          }
-                        />
-                        <div className="flex items-center gap-2 md:col-span-4">
-                          <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              const f = e.target.files?.[0];
-                              if (f) importTotpFromImage(i, f);
-                            }}
-                          />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                          >
-                            <QrCode className="h-4 w-4 mr-1" /> 识别二维码
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            type="button"
-                            className="text-red-500 hover:text-red-600"
-                            onClick={() => removeAccount(i)}
-                          >
-                            删除
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
+                      {section.label}
+                    </TabsTrigger>
                   ))}
-                </div>
-              )}
+                </TabsList>
+              </Tabs>
+              <div className="mt-4 flex flex-col gap-8 pb-2">
+                <section
+                  ref={basicSectionRef}
+                  id="add-bookmark-basic"
+                  className="space-y-4"
+                >
+                  <div className="text-[12px] font-semibold text-muted-foreground">
+                    基础信息
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <FormField
+                      control={form.control}
+                      name="title"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>名称</FormLabel>
+                          <FormControl>
+                            <Input className="h-8 text-[13px]" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="url"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>网址</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              className="h-auto min-h-8 text-[13px]"
+                              rows={2}
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </section>
+
+                <section
+                  ref={locationSectionRef}
+                  id="add-bookmark-location"
+                  className="space-y-3"
+                >
+                  <div className="text-[12px] font-semibold text-muted-foreground">
+                    保存位置
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="parentId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>位置</FormLabel>
+                        <div className="max-h-72 overflow-hidden rounded-xl border border-dashed border-primary/20 bg-primary/5">
+                          <div className="max-h-72 overflow-auto px-1 py-1">
+                            <FolderTree
+                              nodes={tree?.[0]?.children ?? []}
+                              selected={field.value}
+                              onSelect={(id) => field.onChange(id)}
+                              expanded={expanded}
+                              onToggle={(id) => {
+                                const s = new Set(expanded);
+                                if (s.has(id)) s.delete(id);
+                                else s.add(id);
+                                setExpanded(s);
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </section>
+
+                <Separator />
+
+                <section
+                  ref={accountsSectionRef}
+                  id="add-bookmark-accounts"
+                  className="space-y-4"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium">账号与安全</div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      type="button"
+                      className="border-dashed"
+                      onClick={addAccount}
+                    >
+                      + 添加账号
+                    </Button>
+                  </div>
+                  {(fields.length === 0 && (
+                    <div className="text-xs text-muted-foreground">
+                      可选：为该网站添加一个或多个账号密码，并可附加 TOTP
+                    </div>
+                  )) || (
+                    <div className="space-y-3">
+                      {fields.map((acc, i) => (
+                        <div
+                          key={acc.id}
+                          className="space-y-3 rounded-xl border border-border/60 bg-white/70 p-3 shadow-sm dark:bg-slate-950/40"
+                        >
+                          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                            <Input
+                              placeholder="账号/用户名"
+                              className="h-8 text-[13px]"
+                              value={
+                                form.getValues(`accounts.${i}.username`) || ''
+                              }
+                              onChange={(e) =>
+                                updateAccount(i, { username: e.target.value })
+                              }
+                            />
+                            <Input
+                              placeholder="密码"
+                              type="password"
+                              className="h-8 text-[13px]"
+                              value={
+                                form.getValues(`accounts.${i}.password`) || ''
+                              }
+                              onChange={(e) =>
+                                updateAccount(i, { password: e.target.value })
+                              }
+                            />
+                          </div>
+                          <div className="grid grid-cols-1 items-center gap-2 md:grid-cols-12">
+                            <Input
+                              className="h-8 text-[13px] md:col-span-8"
+                              placeholder="otpauth:// 或密钥"
+                              value={form.getValues(`accounts.${i}.totp`) || ''}
+                              onChange={(e) =>
+                                updateAccount(i, { totp: e.target.value })
+                              }
+                            />
+                            <div className="flex items-center gap-2 md:col-span-4">
+                              <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0];
+                                  if (f) importTotpFromImage(i, f);
+                                }}
+                              />
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                              >
+                                <QrCode className="mr-1 h-4 w-4" /> 识别二维码
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                type="button"
+                                className="text-red-500 hover:text-red-600"
+                                onClick={() => removeAccount(i)}
+                              >
+                                删除
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              </div>
             </div>
           </form>
         </Form>

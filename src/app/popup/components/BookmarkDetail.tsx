@@ -15,6 +15,7 @@ import {
   getBookmarkMeta,
   setBookmarkMeta,
 } from '@/extension/storage';
+import clsx from 'clsx';
 import {
   Copy,
   Eye,
@@ -40,14 +41,17 @@ import { ConfirmDrawer } from './ConfirmDrawer';
 export function BookmarkDetail({
   id,
   onMutate,
+  onClose,
 }: {
   id: string;
   onMutate?: () => void;
+  onClose?: () => void;
 }) {
   const [node, setNode] = useState<BookmarkNode | null>(null);
   const [accounts, setAccounts] = useState<AccountCredential[]>([]);
   const [editing, setEditing] = useState(false);
   const [draftTitle, setDraftTitle] = useState('');
+  const [draftUrl, setDraftUrl] = useState('');
   const [draftAccounts, setDraftAccounts] = useState<AccountCredential[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -87,6 +91,7 @@ export function BookmarkDetail({
   const startEditing = useCallback(() => {
     if (!node) return;
     setDraftTitle(node.title || '');
+    setDraftUrl(node.url || '');
     const next =
       accounts.length > 0
         ? accounts.map((acc) => ({ ...acc }))
@@ -98,6 +103,7 @@ export function BookmarkDetail({
   const cancelEditing = useCallback(() => {
     setEditing(false);
     setDraftTitle('');
+    setDraftUrl('');
     setDraftAccounts([]);
   }, []);
 
@@ -127,7 +133,11 @@ export function BookmarkDetail({
     try {
       const trimmedTitle = draftTitle.trim();
       const safeTitle = trimmedTitle || node.url || '书签';
-      await updateBookmark(node.id, { title: safeTitle });
+      const trimmedUrl = draftUrl.trim();
+      await updateBookmark(node.id, {
+        title: safeTitle,
+        url: trimmedUrl || node.url || '',
+      });
 
       const cleaned = draftAccounts
         .map((acc) => ({
@@ -149,7 +159,15 @@ export function BookmarkDetail({
     } finally {
       setSaving(false);
     }
-  }, [cancelEditing, draftAccounts, draftTitle, node, onMutate, refresh]);
+  }, [
+    cancelEditing,
+    draftAccounts,
+    draftTitle,
+    draftUrl,
+    node,
+    onMutate,
+    refresh,
+  ]);
 
   const handleDelete = useCallback(() => {
     if (!node) return;
@@ -166,60 +184,33 @@ export function BookmarkDetail({
 
   const detailTitle = node.title?.trim() || host || '未命名书签';
   const disableSave = saving;
+  const sectionCardClass =
+    'rounded-3xl border border-border/40 bg-card/85 px-5 py-5 shadow-sm sm:px-6 sm:py-6';
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg p-3 text-[13px] leading-snug text-foreground">
-      <div className="rounded-xl border border-border/60 bg-card/85 p-3 shadow-sm">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex flex-1 items-start gap-2.5">
-            <BookmarkAvatar url={node.url} title={detailTitle} size={42} />
-            <div className="min-w-0 space-y-1.5">
-              {editing ? (
-                <Input
-                  value={draftTitle}
-                  onChange={(e) => setDraftTitle(e.target.value)}
-                  placeholder="输入名称"
-                  className="h-9 rounded-lg border-none bg-muted/40 px-3 text-[14px] font-semibold focus-visible:ring-1"
-                />
-              ) : (
-                <div className="truncate text-[14px] font-semibold text-foreground">
-                  {detailTitle}
-                </div>
-              )}
-              <div className="text-[11px] text-muted-foreground">
-                上次修改时间：{formatDate(updatedAt)} · {host || '未知站点'}
+    <div className="mx-auto flex h-full w-full min-w-0 max-w-none flex-col gap-5 pb-10 text-[13px] leading-snug text-foreground">
+      <div className="sticky top-0 z-10 bg-background pb-3">
+        <div className="flex w-full flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/40 bg-card/90 px-4 py-3 shadow-sm">
+          {editing ? (
+            <>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 rounded-lg px-3 text-red-500 hover:text-red-600"
+                  onClick={handleDelete}
+                >
+                  删除
+                </Button>
               </div>
-              <div className="text-[11px] text-muted-foreground">
-                {node.url ? (
-                  <a
-                    href={node.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex max-w-full items-center gap-1 rounded-md bg-muted/30 px-2 py-1 text-[11px] font-medium text-foreground/80 transition hover:bg-muted/60"
-                  >
-                    <span className="truncate">{node.url}</span>
-                  </a>
-                ) : (
-                  '暂无链接'
-                )}
+              <div className="min-w-0 flex-1 truncate text-center text-[12px] text-muted-foreground">
+                {(draftTitle || '').trim() || detailTitle}
               </div>
-            </div>
-          </div>
-          <div className="flex shrink-0 flex-col items-end gap-1.5 text-[12px]">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 rounded-lg px-2 text-red-500 hover:text-red-600"
-              onClick={handleDelete}
-            >
-              删除
-            </Button>
-            {editing ? (
               <div className="flex items-center gap-1.5">
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 rounded-lg px-2"
+                  className="h-8 rounded-lg px-3"
                   onClick={cancelEditing}
                   disabled={saving}
                 >
@@ -227,44 +218,110 @@ export function BookmarkDetail({
                 </Button>
                 <Button
                   size="sm"
-                  className="h-7 rounded-lg px-3 shadow-sm"
+                  className="h-8 rounded-lg px-4 shadow-sm"
                   onClick={handleSaveAll}
                   disabled={disableSave}
                 >
                   {saving ? (
                     <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                   ) : null}
-                  保存
+                  完成
                 </Button>
               </div>
-            ) : (
+            </>
+          ) : (
+            <>
+              <div className="min-w-0 flex-1 truncate text-[15px] font-semibold text-foreground">
+                {detailTitle}
+              </div>
               <div className="flex items-center gap-1.5">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 rounded-lg text-muted-foreground transition hover:text-foreground"
-                  onClick={() =>
-                    node.url && window.open(node.url, '_blank', 'noreferrer')
-                  }
-                  title="在新标签页打开"
-                >
-                  <Globe2 className="h-3.5 w-3.5" />
-                </Button>
+                {onClose ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 rounded-lg px-3 text-muted-foreground transition hover:text-foreground"
+                    onClick={onClose}
+                  >
+                    隐藏
+                  </Button>
+                ) : null}
                 <Button
                   size="sm"
-                  className="h-7 rounded-lg px-3 shadow-sm"
+                  className="h-8 rounded-lg px-4 shadow-sm"
                   onClick={startEditing}
                 >
                   编辑
                 </Button>
               </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className={sectionCardClass}>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
+          <BookmarkAvatar url={node.url} title={detailTitle} size={48} />
+          <div className="min-w-0 flex-1 space-y-3">
+            {editing ? (
+              <>
+                <Input
+                  value={draftTitle}
+                  onChange={(e) => setDraftTitle(e.target.value)}
+                  placeholder="输入名称"
+                  className="h-10 rounded-lg border-none bg-muted/40 px-3 text-[14px] font-semibold focus-visible:ring-1"
+                />
+                <Textarea
+                  value={draftUrl}
+                  onChange={(e) => setDraftUrl(e.target.value)}
+                  placeholder="输入链接"
+                  rows={2}
+                  className="resize-none rounded-lg border-none bg-muted/40 px-3 py-2 text-[13px] focus-visible:ring-1"
+                />
+              </>
+            ) : (
+              <div className="space-y-2">
+                <div className="truncate text-[15px] font-semibold text-foreground">
+                  {detailTitle}
+                </div>
+                {node.url ? (
+                  <div className="space-y-2">
+                    <a
+                      href={node.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block break-all rounded-lg bg-muted/25 px-3 py-2 text-[12px] font-medium text-foreground/80 transition hover:bg-muted/50"
+                    >
+                      {node.url}
+                    </a>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-fit rounded-lg px-3 text-[12px]"
+                      onClick={() =>
+                        node.url &&
+                        window.open(node.url, '_blank', 'noreferrer')
+                      }
+                    >
+                      <Globe2 className="mr-1.5 h-3.5 w-3.5" />
+                      打开链接
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-[12px] text-muted-foreground">
+                    暂无链接
+                  </div>
+                )}
+              </div>
             )}
+            <div className="text-[11px] text-muted-foreground">
+              上次修改时间：{formatDate(updatedAt)} · {host || '未知站点'}
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="rounded-xl border border-border/50 bg-card/70 p-3 shadow-sm">
-        <div className="mb-2 flex items-center justify-between text-[12px] font-medium text-muted-foreground">
+      <div className={sectionCardClass}>
+        <div className="mb-4 flex items-center justify-between text-[12px] font-medium text-muted-foreground">
           <span>账号信息</span>
           {!editing && normalizedAccounts.length > 0 ? (
             <span className="text-[11px] font-normal text-muted-foreground/80">
@@ -273,9 +330,9 @@ export function BookmarkDetail({
           ) : null}
         </div>
         {!editing ? (
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             {normalizedAccounts.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 px-3 py-5 text-center text-[12px] text-muted-foreground">
+              <div className="rounded-xl border border-dashed border-border/50 bg-muted/15 px-4 py-6 text-center text-[12px] text-muted-foreground">
                 暂未保存账号信息
               </div>
             ) : (
@@ -292,9 +349,9 @@ export function BookmarkDetail({
             )}
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {draftAccounts.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 px-3 py-5 text-center text-[12px] text-muted-foreground">
+              <div className="rounded-xl border border-dashed border-border/50 bg-muted/15 px-4 py-6 text-center text-[12px] text-muted-foreground">
                 暂无账号，请点击下方按钮添加
               </div>
             ) : (
@@ -312,7 +369,7 @@ export function BookmarkDetail({
             <Button
               variant="outline"
               size="sm"
-              className="w-full rounded-lg border-dashed border-border/60 py-4 text-sm font-medium text-muted-foreground hover:border-border hover:text-foreground"
+              className="w-full rounded-xl border-dashed border-border/50 py-4 text-sm font-medium text-muted-foreground hover:border-border hover:text-foreground"
               onClick={addDraftAccount}
             >
               + 添加账号
@@ -356,7 +413,7 @@ function SecurityCard({ account }: { account: AccountCredential }) {
           description:
             '此密码较长、不易猜到且唯一。配合验证码可在密码被盗时保护账号。',
           className:
-            'rounded-xl border border-emerald-400/60 bg-emerald-50/90 px-3 py-3 text-[12px] text-emerald-800 shadow-sm dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-100',
+            'rounded-3xl border border-emerald-400/60 bg-emerald-50/90 px-5 py-5 text-[12px] text-emerald-800 shadow-sm dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-100',
         }
       : status === 'medium'
         ? {
@@ -364,14 +421,14 @@ function SecurityCard({ account }: { account: AccountCredential }) {
             title: '安全性一般',
             description: '建议同时使用强密码与验证码来提升账号安全性。',
             className:
-              'rounded-xl border border-amber-300/60 bg-amber-50/90 px-3 py-3 text-[12px] text-amber-800 shadow-sm dark:border-amber-300/30 dark:bg-amber-500/10 dark:text-amber-100',
+              'rounded-3xl border border-amber-300/60 bg-amber-50/90 px-5 py-5 text-[12px] text-amber-800 shadow-sm dark:border-amber-300/30 dark:bg-amber-500/10 dark:text-amber-100',
           }
         : {
             icon: <ShieldX className="h-5 w-5" />,
             title: '安全性较弱',
             description: '尚未配置强密码或验证码，请尽快完善账号安全设置。',
             className:
-              'rounded-xl border border-rose-300/60 bg-rose-50/90 px-3 py-3 text-[12px] text-rose-800 shadow-sm dark:border-rose-300/30 dark:bg-rose-500/10 dark:text-rose-100',
+              'rounded-3xl border border-rose-300/60 bg-rose-50/90 px-5 py-5 text-[12px] text-rose-800 shadow-sm dark:border-rose-300/30 dark:bg-rose-500/10 dark:text-rose-100',
           };
 
   return (
@@ -436,7 +493,7 @@ function AccountCard({
   }
 
   return (
-    <div className="rounded-lg border border-border/60 bg-background/70 p-3 shadow-sm">
+    <div className="rounded-2xl border border-border/40 bg-background/80 px-4 py-4 shadow-sm sm:px-5 sm:py-5">
       <div className="flex items-start gap-2.5">
         <BookmarkAvatar url={url} title={title} size={36} />
         <div className="min-w-0 flex-1">
@@ -613,7 +670,7 @@ function EditableAccountCard({
   }
 
   return (
-    <div className="space-y-2.5 rounded-lg border border-border/60 bg-background/60 p-3 shadow-sm">
+    <div className="space-y-4 rounded-2xl bg-muted/15 px-4 py-4 sm:px-5 sm:py-5">
       <div className="flex items-center justify-between text-[13px] font-semibold text-foreground">
         <span>账号 {index + 1}</span>
         <Button
@@ -625,7 +682,7 @@ function EditableAccountCard({
           删除账号
         </Button>
       </div>
-      <FieldSection>
+      <FieldSection variant="plain">
         <FieldRow label="显示名称">
           <Input
             value={account.label || ''}
@@ -713,9 +770,25 @@ function EditableAccountCard({
   );
 }
 
-function FieldSection({ children }: { children: ReactNode }) {
+function FieldSection({
+  children,
+  variant = 'card',
+  className,
+}: {
+  children: ReactNode;
+  variant?: 'card' | 'plain';
+  className?: string;
+}) {
   return (
-    <div className="overflow-hidden rounded-lg border border-border/50 bg-muted/10">
+    <div
+      className={clsx(
+        'overflow-hidden rounded-xl',
+        variant === 'card'
+          ? 'border border-border/50 bg-muted/10'
+          : 'bg-transparent',
+        className,
+      )}
+    >
       {children}
     </div>
   );
@@ -731,13 +804,13 @@ function FieldRow({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-1.5 border-b border-border/40 px-2.5 py-2 last:border-b-0 sm:flex-row sm:items-center sm:gap-3.5 sm:px-3 sm:py-2.5">
-      <div className="text-[11px] font-medium text-muted-foreground sm:w-20">
+    <div className="flex flex-col gap-1.5 border-b border-border/35 px-3 py-2.5 last:border-b-0 sm:flex-row sm:items-start sm:gap-4">
+      <div className="text-[11px] font-medium text-muted-foreground sm:w-24 sm:flex-none sm:pt-0.5">
         {label}
       </div>
       <div className="min-w-0 flex-1 text-[13px]">{children}</div>
       {actions ? (
-        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-1.5">
+        <div className="flex flex-col gap-1.5 sm:ml-auto sm:flex-row sm:items-center sm:gap-1.5 sm:pl-2">
           {actions}
         </div>
       ) : null}

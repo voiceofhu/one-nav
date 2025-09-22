@@ -9,9 +9,9 @@ export function Header() {
         <div className="mr-4 flex">
           <Link className="mr-6 flex items-center space-x-2" href="/">
             <img
-              src="/pwa-512x512.png"
+              src="/header.png"
               alt="OneNav Logo"
-              className="size-10 rounded-md"
+              className="h-9 rounded-md"
             />
             {/* <span className="font-semibold text-xl">OneNav</span> */}
           </Link>

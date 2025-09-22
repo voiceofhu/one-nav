@@ -103,8 +103,8 @@ export default function PopupPage() {
 
   return (
     <>
-      <div className="flex h-full w-full bg-background/60 text-[13px]">
-        <div className="flex h-full w-[340px] flex-col border-r border-border/60 bg-background/80 backdrop-blur">
+      <div className="flex h-full w-full bg-background/70 text-[13px]">
+        <div className="flex h-full w-[300px] min-w-[280px] flex-col border-r border-border/50 bg-background/80 backdrop-blur">
           <Suspense
             fallback={
               <div className="text-sm p-4 text-muted-foreground">加载中...</div>
@@ -137,20 +137,9 @@ export default function PopupPage() {
             </Suspense>
           </div>
         </div>
-        <div className="flex h-full flex-1 flex-col bg-background/50 backdrop-blur-sm">
+        <div className="flex h-full min-w-[340px] flex-1 flex-col bg-background/50 backdrop-blur-sm">
           <div className="flex h-full flex-col">
-            <div className="flex items-center justify-between border-b border-border/60 px-4 py-2.5 text-xs text-muted-foreground">
-              <span>{detailId ? '书签详情' : '暂无详情'}</span>
-              {detailId ? (
-                <button
-                  className="inline-flex h-7 items-center justify-center rounded-full px-3 text-[10px] font-medium text-muted-foreground transition hover:bg-muted/60 hover:text-foreground"
-                  onClick={closeDetail}
-                >
-                  隐藏
-                </button>
-              ) : null}
-            </div>
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto px-4 pb-5 pt-4">
               <Suspense
                 fallback={
                   <div className="text-sm p-4 text-muted-foreground">
@@ -159,7 +148,11 @@ export default function PopupPage() {
                 }
               >
                 {detailId ? (
-                  <BookmarkDetail id={detailId} onMutate={invalidate} />
+                  <BookmarkDetail
+                    id={detailId}
+                    onMutate={invalidate}
+                    onClose={closeDetail}
+                  />
                 ) : (
                   <DetailPlaceholder />
                 )}
