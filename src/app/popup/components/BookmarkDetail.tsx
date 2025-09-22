@@ -181,7 +181,6 @@ export function BookmarkDetail({
         onSave={handleSaveAll}
         onClose={onClose}
       />
-
       <BookmarkOverviewSection
         editing={editing}
         detailTitle={detailTitle}

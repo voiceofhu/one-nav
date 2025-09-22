@@ -21,7 +21,7 @@ export function BookmarkSection({
   return (
     <div
       className={clsx(
-        'rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm px-4 py-4 shadow-lg dark:border-gray-700/60 dark:bg-gray-900/80',
+        'rounded-2xl border border-gray-200/60 mx-2 bg-white/80 backdrop-blur-sm px-4 py-4  dark:border-gray-700/60 dark:bg-gray-900/80',
         className,
       )}
     >
