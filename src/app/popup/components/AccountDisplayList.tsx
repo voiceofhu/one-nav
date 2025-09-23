@@ -7,13 +7,9 @@ import { Lock, Shield, User } from 'lucide-react';
 
 interface AccountDisplayListProps {
   accounts: AccountCredential[];
-  showSecurity?: boolean;
 }
 
-export function AccountDisplayList({
-  accounts,
-  showSecurity = false,
-}: AccountDisplayListProps) {
+export function AccountDisplayList({ accounts }: AccountDisplayListProps) {
   if (accounts.length === 0) {
     return (
       <div className="px-4 py-3">
@@ -32,12 +28,7 @@ export function AccountDisplayList({
 
       <div className="space-y-2">
         {accounts.map((account, index) => (
-          <AccountDisplayItem
-            key={index}
-            account={account}
-            index={index}
-            showSecurity={showSecurity}
-          />
+          <AccountDisplayItem key={index} account={account} index={index} />
         ))}
       </div>
     </div>

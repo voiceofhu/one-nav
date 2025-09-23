@@ -5,6 +5,7 @@ import { type AccountCredential } from '@/extension/storage';
 import { useMemo } from 'react';
 
 import { AccountDisplayList } from './AccountDisplayList';
+import { BookmarkActions } from './BookmarkActions';
 import { BookmarkInfoSection } from './BookmarkInfoSection';
 import { BookmarkViewHeader } from './BookmarkViewHeader';
 import { SecurityCard } from './SecurityCard';
@@ -31,20 +32,12 @@ export function BookmarkView({
 
   return (
     <div className="mx-auto flex overflow-auto h-auto pb-6 w-full flex-col text-[12px] leading-snug text-foreground overflow-hidden">
-      <BookmarkViewHeader
-        title={detailTitle}
-        onEdit={onEdit}
-        onDelete={onDelete}
-        onClose={onClose}
-      />
-      <BookmarkInfoSection
-        title={detailTitle}
-        url={node.url || ''}
-        host={host}
-        updatedAt={updatedAt}
-      />
+      <BookmarkViewHeader title={detailTitle} onEdit={onEdit} />
+      <BookmarkInfoSection url={node.url || ''} updatedAt={updatedAt} />
       <AccountDisplayList accounts={accounts} />
       {primaryAccount && <SecurityCard account={primaryAccount} />}
+
+      <BookmarkActions onDelete={onDelete} onClose={onClose} />
     </div>
   );
 }

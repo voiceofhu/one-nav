@@ -1,19 +1,14 @@
 'use client';
 
 import { Badge } from '@/components/ui/badge';
-import { ExternalLink, Globe } from 'lucide-react';
 
 interface BookmarkInfoSectionProps {
-  title: string;
   url: string;
-  host: string;
   updatedAt?: number;
 }
 
 export function BookmarkInfoSection({
-  title,
   url,
-  host,
   updatedAt,
 }: BookmarkInfoSectionProps) {
   return (
@@ -44,4 +39,13 @@ export function BookmarkInfoSection({
       )}
     </div>
   );
+}
+
+function getHostFromUrl(url?: string | null) {
+  if (!url) return '';
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
 }
