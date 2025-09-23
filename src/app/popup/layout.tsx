@@ -49,6 +49,7 @@ export default function PopupLayout({
   }
   return (
     <Suspense fallback={<div className="p-4">Loading...</div>}>
+      <style></style>
       <PopupStateProvider>
         <SidebarProvider
           className="relative overflow-hidden text-[13px] leading-tight"

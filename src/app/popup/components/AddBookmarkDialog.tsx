@@ -23,6 +23,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { type BookmarkNode, addBookmark, getActiveTab } from '@/extension/data';
 import { AccountCredential, setBookmarkMeta } from '@/extension/storage';
+import { FORM_CONFIG, bookmarkFormSchema } from '@/lib/form-validation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Folder } from 'lucide-react';
@@ -92,34 +93,15 @@ export function AddBookmarkDialog({
     [basicSectionRef, locationSectionRef, accountsSectionRef],
   );
 
-  const schema = useMemo(
-    () =>
-      z.object({
-        title: z.string().min(1, '请输入名称'),
-        url: z.string().url('请输入有效网址'),
-        parentId: z.string().min(1, '请选择位置'),
-        accounts: z
-          .array(
-            z.object({
-              username: z.string().optional().default(''),
-              password: z.string().optional().default(''),
-              totp: z.string().optional().default(''),
-            }),
-          )
-          .default([]),
-      }),
-    [],
-  );
-
-  const form = useForm<z.input<typeof schema>>({
-    resolver: zodResolver(schema),
+  const form = useForm<z.input<typeof bookmarkFormSchema>>({
+    resolver: zodResolver(bookmarkFormSchema),
     defaultValues: {
       title: '',
       url: '',
       parentId: '',
       accounts: [{ username: '', password: '', totp: '' }],
     },
-    mode: 'onChange',
+    ...FORM_CONFIG,
   });
 
   const { fields, append, remove, update } = useFieldArray({
@@ -173,46 +155,50 @@ export function AddBookmarkDialog({
     };
   }, [sections]);
 
-  const handleSubmit = form.handleSubmit(async (values) => {
-    setSaving(true);
-    try {
-      const node = await addBookmark({
-        title: values.title.trim(),
-        url: values.url.trim(),
-        parentId: values.parentId,
-      });
-      const accs = values.accounts || [];
-      const anyFilled = accs.some(
-        (a) => (a.username || a.password || a.totp)?.trim?.() || false,
-      );
-      if (anyFilled) {
-        const normalized: AccountCredential[] = accs.map((a) => ({
-          username: a.username || '',
-          password: a.password || '',
-          totp: a.totp || '',
-        }));
-        await setBookmarkMeta(node.id, { accounts: normalized });
+  const handleSubmit = form.handleSubmit(
+    async (values) => {
+      setSaving(true);
+      try {
+        const node = await addBookmark({
+          title: values.title.trim(),
+          url: values.url.trim(),
+          parentId: values.parentId,
+        });
+        const accs = values.accounts || [];
+        const anyFilled = accs.some(
+          (a) => (a.username || a.password || a.totp)?.trim?.() || false,
+        );
+        if (anyFilled) {
+          const normalized: AccountCredential[] = accs.map((a) => ({
+            username: a.username || '',
+            password: a.password || '',
+            totp: a.totp || '',
+          }));
+          await setBookmarkMeta(node.id, { accounts: normalized });
+        }
+        // 刷新查询缓存
+        await queryClient.invalidateQueries(popupTreeQueryOptions);
+        toast.success('已成功添加书签');
+        onCreated?.(node);
+        onOpenChange(false);
+      } catch (error) {
+        console.error('Failed to add bookmark:', error);
+        toast.error('添加书签失败，请稍后再试');
+      } finally {
+        setSaving(false);
       }
-      // 刷新查询缓存
-      await queryClient.invalidateQueries(popupTreeQueryOptions);
-      toast.success('已成功添加书签');
-      onCreated?.(node);
-      onOpenChange(false);
-    } catch (error) {
-      console.error('Failed to add bookmark:', error);
-      toast.error('添加书签失败，请稍后再试');
-    } finally {
-      setSaving(false);
-    }
-  });
+    },
+    (errors) => {
+      console.warn('Form validation errors:', errors);
+      const firstError = Object.keys(errors)[0] as 'title' | 'url' | 'parentId';
+      if (firstError && ['title', 'url', 'parentId'].includes(firstError)) {
+        form.setFocus(firstError);
+      }
+    },
+  );
 
   function addAccount() {
     append({ username: '', password: '', totp: '' });
-  }
-
-  function updateAccount(i: number, patch: Partial<AccountCredential>) {
-    const current = fields[i];
-    update(i, { ...current, ...patch });
   }
 
   function removeAccount(i: number) {
@@ -222,8 +208,11 @@ export function AddBookmarkDialog({
   async function importTotpFromImage(i: number, file: File) {
     try {
       const data = await decodeQRFromImage(file);
-      if (data) updateAccount(i, { totp: data });
-      else toast.error('未识别到二维码');
+      if (data) {
+        form.setValue(`accounts.${i}.totp`, data);
+      } else {
+        toast.error('未识别到二维码');
+      }
     } catch (e) {
       console.error(e);
       toast.error('识别二维码失败');
@@ -272,9 +261,11 @@ export function AddBookmarkDialog({
                 type="submit"
                 size="sm"
                 className="shadow-sm"
-                disabled={!form.formState.isValid || saving}
+                disabled={
+                  !form.formState.isValid || saving || !form.watch('parentId')
+                }
               >
-                保存
+                {saving ? '保存中...' : '保存'}
               </Button>
             </DrawerHeader>
             <div
@@ -311,11 +302,33 @@ export function AddBookmarkDialog({
                     <FormField
                       control={form.control}
                       name="title"
-                      render={({ field }) => (
+                      render={({ field, fieldState }) => (
                         <FormItem>
-                          <FormLabel>名称</FormLabel>
+                          <FormLabel
+                            className={
+                              fieldState.error ? 'text-destructive' : ''
+                            }
+                          >
+                            名称 <span className="text-destructive">*</span>
+                          </FormLabel>
                           <FormControl>
-                            <Input className="h-8 text-[13px]" {...field} />
+                            <Input
+                              className={`h-8 text-[13px] ${
+                                fieldState.error
+                                  ? 'border-destructive focus-visible:ring-destructive'
+                                  : ''
+                              }`}
+                              placeholder="请输入书签名称"
+                              {...field}
+                              onBlur={(e) => {
+                                field.onBlur();
+                                // 自动去除首尾空格
+                                const trimmed = e.target.value.trim();
+                                if (trimmed !== field.value) {
+                                  field.onChange(trimmed);
+                                }
+                              }}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -324,14 +337,33 @@ export function AddBookmarkDialog({
                     <FormField
                       control={form.control}
                       name="url"
-                      render={({ field }) => (
+                      render={({ field, fieldState }) => (
                         <FormItem>
-                          <FormLabel>网址</FormLabel>
+                          <FormLabel
+                            className={
+                              fieldState.error ? 'text-destructive' : ''
+                            }
+                          >
+                            网址 <span className="text-destructive">*</span>
+                          </FormLabel>
                           <FormControl>
                             <Textarea
-                              className="h-auto min-h-8 text-[13px]"
+                              className={`h-auto min-h-8 text-[13px] ${
+                                fieldState.error
+                                  ? 'border-destructive focus-visible:ring-destructive'
+                                  : ''
+                              }`}
                               rows={2}
+                              placeholder="https://example.com"
                               {...field}
+                              onBlur={(e) => {
+                                field.onBlur();
+                                // 自动去除首尾空格
+                                const trimmed = e.target.value.trim();
+                                if (trimmed !== field.value) {
+                                  field.onChange(trimmed);
+                                }
+                              }}
                             />
                           </FormControl>
                           <FormMessage />
@@ -352,26 +384,51 @@ export function AddBookmarkDialog({
                   <FormField
                     control={form.control}
                     name="parentId"
-                    render={({ field }) => (
+                    render={({ field, fieldState }) => (
                       <FormItem>
-                        <FormLabel>位置</FormLabel>
-                        <div className="max-h-72 overflow-hidden rounded-xl border border-dashed border-primary/20 bg-primary/5">
+                        <FormLabel
+                          className={fieldState.error ? 'text-destructive' : ''}
+                        >
+                          保存位置 <span className="text-destructive">*</span>
+                        </FormLabel>
+                        <div
+                          className={`max-h-72 overflow-hidden rounded-xl border border-dashed ${
+                            fieldState.error
+                              ? 'border-destructive bg-destructive/5'
+                              : 'border-primary/20 bg-primary/5'
+                          }`}
+                        >
                           <div className="max-h-72 overflow-auto px-1 py-1">
-                            <FolderTree
-                              nodes={tree?.[0]?.children ?? []}
-                              selected={field.value}
-                              onSelect={(id) => field.onChange(id)}
-                              expanded={expanded}
-                              onToggle={(id) => {
-                                const s = new Set(expanded);
-                                if (s.has(id)) s.delete(id);
-                                else s.add(id);
-                                setExpanded(s);
-                              }}
-                            />
+                            {tree?.[0]?.children?.length ? (
+                              <FolderTree
+                                nodes={tree[0].children}
+                                selected={field.value}
+                                onSelect={(id) => {
+                                  field.onChange(id);
+                                  // 清除该字段的错误状态
+                                  form.clearErrors('parentId');
+                                }}
+                                expanded={expanded}
+                                onToggle={(id) => {
+                                  const s = new Set(expanded);
+                                  if (s.has(id)) s.delete(id);
+                                  else s.add(id);
+                                  setExpanded(s);
+                                }}
+                              />
+                            ) : (
+                              <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+                                暂无可选择的文件夹
+                              </div>
+                            )}
                           </div>
                         </div>
                         <FormMessage />
+                        {!fieldState.error && field.value && (
+                          <p className="text-xs text-muted-foreground">
+                            已选择保存位置
+                          </p>
+                        )}
                       </FormItem>
                     )}
                   />
@@ -408,36 +465,52 @@ export function AddBookmarkDialog({
                           className="space-y-3 rounded-xl border border-border/60 bg-white/70 p-3 shadow-sm dark:bg-slate-950/40"
                         >
                           <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                            <Input
-                              placeholder="账号密码"
-                              className="h-8 text-[13px]"
-                              value={
-                                form.getValues(`accounts.${i}.username`) || ''
-                              }
-                              onChange={(e) =>
-                                updateAccount(i, { username: e.target.value })
-                              }
+                            <FormField
+                              control={form.control}
+                              name={`accounts.${i}.username`}
+                              render={({ field }) => (
+                                <Input
+                                  placeholder="账号密码"
+                                  className="h-8 text-[13px]"
+                                  {...field}
+                                />
+                              )}
                             />
-                            <Input
-                              placeholder="密码"
-                              type="password"
-                              className="h-8 text-[13px]"
-                              value={
-                                form.getValues(`accounts.${i}.password`) || ''
-                              }
-                              onChange={(e) =>
-                                updateAccount(i, { password: e.target.value })
-                              }
+                            <FormField
+                              control={form.control}
+                              name={`accounts.${i}.password`}
+                              render={({ field }) => (
+                                <Input
+                                  placeholder="密码"
+                                  type="password"
+                                  className="h-8 text-[13px]"
+                                  {...field}
+                                />
+                              )}
                             />
                           </div>
                           <div className="grid grid-cols-1 items-center gap-2 md:grid-cols-12">
-                            <Input
-                              className="h-8 text-[13px] md:col-span-8"
-                              placeholder="otpauth:// 或密钥"
-                              value={form.getValues(`accounts.${i}.totp`) || ''}
-                              onChange={(e) =>
-                                updateAccount(i, { totp: e.target.value })
-                              }
+                            <FormField
+                              control={form.control}
+                              name={`accounts.${i}.totp`}
+                              render={({ field, fieldState }) => (
+                                <div className="md:col-span-8">
+                                  <Input
+                                    className={`h-8 text-[13px] ${
+                                      fieldState.error
+                                        ? 'border-destructive focus-visible:ring-destructive'
+                                        : ''
+                                    }`}
+                                    placeholder="otpauth:// 或密钥"
+                                    {...field}
+                                  />
+                                  {fieldState.error && (
+                                    <p className="mt-1 text-xs text-destructive">
+                                      {fieldState.error.message}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
                             />
                             <div className="flex items-center gap-2 md:col-span-4">
                               <input

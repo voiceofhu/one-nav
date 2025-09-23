@@ -138,27 +138,23 @@ export default function PopupPage() {
           </div>
         </div>
         <div className="flex h-full min-w-[340px] flex-1 flex-col  backdrop-blur-sm">
-          <div className="flex h-full flex-col">
-            <div className="flex-1 overflow-y-auto pb-5">
-              <Suspense
-                fallback={
-                  <div className="text-sm p-4 text-muted-foreground">
-                    正在加载详情...
-                  </div>
-                }
-              >
-                {detailId ? (
-                  <BookmarkDetail
-                    id={detailId}
-                    onMutate={invalidate}
-                    onClose={closeDetail}
-                  />
-                ) : (
-                  <DetailPlaceholder />
-                )}
-              </Suspense>
-            </div>
-          </div>
+          <Suspense
+            fallback={
+              <div className="text-sm p-4 text-muted-foreground">
+                正在加载详情...
+              </div>
+            }
+          >
+            {detailId ? (
+              <BookmarkDetail
+                id={detailId}
+                onMutate={invalidate}
+                onClose={closeDetail}
+              />
+            ) : (
+              <DetailPlaceholder />
+            )}
+          </Suspense>
         </div>
       </div>
 

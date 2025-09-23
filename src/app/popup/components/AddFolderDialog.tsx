@@ -19,10 +19,15 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { type BookmarkNode, addFolder } from '@/extension/data';
+import {
+  FORM_CONFIG,
+  FormErrorHandler,
+  folderFormSchema,
+} from '@/lib/form-validation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, ChevronRight, Folder } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, ChevronDown, ChevronRight, Folder } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -47,19 +52,10 @@ export function AddFolderDialog({
   const [saving, setSaving] = useState(false);
   const queryClient = useQueryClient();
 
-  const schema = useMemo(
-    () =>
-      z.object({
-        name: z.string().min(1, '请输入名称'),
-        parentId: z.string().min(1, '请选择位置'),
-      }),
-    [],
-  );
-
-  const form = useForm<z.infer<typeof schema>>({
-    resolver: zodResolver(schema),
+  const form = useForm<z.infer<typeof folderFormSchema>>({
+    resolver: zodResolver(folderFormSchema),
     defaultValues: { name: '新建文件夹', parentId: '' },
-    mode: 'onChange',
+    ...FORM_CONFIG,
   });
 
   useEffect(() => {
@@ -79,25 +75,34 @@ export function AddFolderDialog({
 
   // keep tree in dialog, no need to flatten
 
-  const handleSubmit = form.handleSubmit(async (values) => {
-    setSaving(true);
-    try {
-      const folder = await addFolder({
-        title: values.name.trim(),
-        parentId: values.parentId,
-      });
-      // 刷新查询缓存
-      await queryClient.invalidateQueries(popupTreeQueryOptions);
-      toast.success('已成功创建文件夹');
-      onCreated?.(folder);
-      onOpenChange(false);
-    } catch (error) {
-      console.error('Failed to add folder:', error);
-      toast.error('创建文件夹失败，请稍后再试');
-    } finally {
-      setSaving(false);
-    }
-  });
+  const handleSubmit = form.handleSubmit(
+    async (values) => {
+      setSaving(true);
+      try {
+        const folder = await addFolder({
+          title: values.name.trim(),
+          parentId: values.parentId,
+        });
+        // 刷新查询缓存
+        await queryClient.invalidateQueries(popupTreeQueryOptions);
+        toast.success('已成功创建文件夹');
+        onCreated?.(folder);
+        onOpenChange(false);
+      } catch (error) {
+        console.error('Failed to add folder:', error);
+        toast.error('创建文件夹失败，请稍后再试');
+      } finally {
+        setSaving(false);
+      }
+    },
+    (errors) => {
+      console.warn('Form validation errors:', errors);
+      const firstError = Object.keys(errors)[0] as 'name' | 'parentId';
+      if (firstError && ['name', 'parentId'].includes(firstError)) {
+        form.setFocus(firstError);
+      }
+    },
+  );
 
   return (
     <Drawer direction="right" open={open} onOpenChange={onOpenChange}>
@@ -108,11 +113,11 @@ export function AddFolderDialog({
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
+                size="icon"
                 className="text-sm font-medium text-muted-foreground hover:text-foreground"
                 onClick={() => onOpenChange(false)}
               >
-                取消
+                <ArrowLeft />
               </Button>
               <DrawerTitle className="flex-1 text-center text-base font-semibold">
                 新文件夹
@@ -124,20 +129,42 @@ export function AddFolderDialog({
                 type="submit"
                 size="sm"
                 className="shadow-sm"
-                disabled={!form.formState.isValid || saving}
+                disabled={
+                  !form.formState.isValid || saving || !form.watch('parentId')
+                }
               >
-                保存
+                {saving ? '保存中...' : '保存'}
               </Button>
             </DrawerHeader>
             <div className="flex-1 space-y-4 overflow-y-auto px-5 pb-5 pt-4">
               <FormField
                 control={form.control}
                 name="name"
-                render={({ field }) => (
+                render={({ field, fieldState }) => (
                   <FormItem>
-                    <FormLabel>名称</FormLabel>
+                    <FormLabel
+                      className={fieldState.error ? 'text-destructive' : ''}
+                    >
+                      名称 <span className="text-destructive">*</span>
+                    </FormLabel>
                     <FormControl>
-                      <Input className="h-8 text-[13px]" {...field} />
+                      <Input
+                        className={`h-8 text-[13px] ${
+                          fieldState.error
+                            ? 'border-destructive focus-visible:ring-destructive'
+                            : ''
+                        }`}
+                        placeholder="请输入文件夹名称"
+                        {...field}
+                        onBlur={(e) => {
+                          field.onBlur();
+                          // 自动去除首尾空格
+                          const trimmed = e.target.value.trim();
+                          if (trimmed !== field.value) {
+                            field.onChange(trimmed);
+                          }
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -146,26 +173,51 @@ export function AddFolderDialog({
               <FormField
                 control={form.control}
                 name="parentId"
-                render={({ field }) => (
+                render={({ field, fieldState }) => (
                   <FormItem>
-                    <FormLabel>位置</FormLabel>
-                    <div className="max-h-72 overflow-hidden rounded-xl border border-dashed border-primary/20 bg-primary/5">
+                    <FormLabel
+                      className={fieldState.error ? 'text-destructive' : ''}
+                    >
+                      保存位置 <span className="text-destructive">*</span>
+                    </FormLabel>
+                    <div
+                      className={`max-h-72 overflow-hidden rounded-xl border border-dashed ${
+                        fieldState.error
+                          ? 'border-destructive bg-destructive/5'
+                          : 'border-primary/20 bg-primary/5'
+                      }`}
+                    >
                       <div className="max-h-72 overflow-auto px-1 py-1">
-                        <FolderTree
-                          nodes={tree?.[0]?.children ?? []}
-                          selected={field.value}
-                          onSelect={(id) => field.onChange(id)}
-                          expanded={expanded}
-                          onToggle={(id) => {
-                            const s = new Set(expanded);
-                            if (s.has(id)) s.delete(id);
-                            else s.add(id);
-                            setExpanded(s);
-                          }}
-                        />
+                        {tree?.[0]?.children?.length ? (
+                          <FolderTree
+                            nodes={tree[0].children}
+                            selected={field.value}
+                            onSelect={(id) => {
+                              field.onChange(id);
+                              // 清除该字段的错误状态
+                              form.clearErrors('parentId');
+                            }}
+                            expanded={expanded}
+                            onToggle={(id) => {
+                              const s = new Set(expanded);
+                              if (s.has(id)) s.delete(id);
+                              else s.add(id);
+                              setExpanded(s);
+                            }}
+                          />
+                        ) : (
+                          <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+                            暂无可选择的文件夹
+                          </div>
+                        )}
                       </div>
                     </div>
                     <FormMessage />
+                    {!fieldState.error && field.value && (
+                      <p className="text-xs text-muted-foreground">
+                        已选择保存位置
+                      </p>
+                    )}
                   </FormItem>
                 )}
               />

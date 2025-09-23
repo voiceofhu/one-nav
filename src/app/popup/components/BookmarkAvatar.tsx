@@ -30,11 +30,9 @@ export function BookmarkAvatar({
       prev < iconCandidates.length ? prev + 1 : prev,
     );
   };
-
   const resolvedSrc =
     iconCandidates[candidateIndex] ??
     (iconCandidates.length === 0 ? getFaviconUrl(url || '') : undefined);
-
   const initials = (title?.trim()?.[0] || 'B').toUpperCase();
 
   if (!resolvedSrc) {
@@ -52,7 +50,7 @@ export function BookmarkAvatar({
     <img
       src={resolvedSrc}
       alt="favicon"
-      className={`shrink-0 rounded-xl border border-gray-200/80 bg-white object-cover shadow-sm dark:border-gray-700/80 dark:bg-gray-800 ${className || ''}`}
+      className={`shrink-0 rounded-xl object-cover ${className || ''}`}
       style={{ height: size, width: size }}
       onError={handleError}
       loading="lazy"
@@ -66,7 +64,12 @@ function getFaviconCandidates(url: string): string[] {
   try {
     const u = new URL(url);
     const domainUrl = `${u.protocol}//${u.hostname}`;
-
+    switch (domainUrl) {
+      case 'https://bandwagonhost.com':
+        return ['/favicons/bwh.jpg'];
+      default:
+        break;
+    }
     const candidates = [
       `https://www.google.com/s2/favicons?sz=128&domain_url=${encodeURIComponent(domainUrl)}`,
     ];

@@ -21,6 +21,7 @@ import { Code2, MoreHorizontal } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { usePopupState } from '../state/popup-state';
+import { BookmarkAvatar } from './BookmarkAvatar';
 import { TotpDisplay } from './TotpDisplay';
 
 type Props = {
@@ -161,7 +162,7 @@ function BookmarkRow({
   const RowInner = (
     <div
       className={
-        'flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-[13px] shadow-sm transition hover:border-border hover:bg-card hover:shadow-md ' +
+        'rounded-xl border px-3 py-2.5 text-[13px] shadow-sm transition hover:border-border hover:bg-card hover:shadow-md ' +
         (isActive
           ? 'border-primary/70 bg-primary/10'
           : 'border-border/60 bg-card/70') +
@@ -203,61 +204,62 @@ function BookmarkRow({
         }
       }}
     >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-background/40 shadow-inner dark:bg-slate-900/60">
-        <BookmarkIcon url={url} isScript={isScript} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between gap-3 mb-1">
-          <OverflowTooltipCell
-            text={title}
-            tooltipText={title}
-            className="w-full truncate text-[13px] font-semibold text-foreground"
-          />
-          <div className="flex shrink-0 items-center gap-1">
-            <Button
-              variant={isActive ? 'default' : 'secondary'}
-              size="sm"
-              className="h-7 rounded-lg px-3 text-[11px]"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                gotoDetail();
-              }}
-            >
-              {'详情'}
-            </Button>
+      <div className="flex gap-2">
+        <div className="flex shrink-0 items-center justify-center overflow-hidden  ">
+          <BookmarkAvatar url={url} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-3 mb-1">
+            <OverflowTooltipCell
+              text={title}
+              tooltipText={title}
+              className="w-full truncate text-[13px] font-semibold text-foreground"
+            />
+            <div className="flex shrink-0 items-center gap-1">
+              <Button
+                variant={isActive ? 'default' : 'secondary'}
+                size="sm"
+                className="h-7 rounded-lg px-3 text-[11px]"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  gotoDetail();
+                }}
+              >
+                {'详情'}
+              </Button>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+              <OverflowTooltipCell
+                text={url}
+                tooltipText={url}
+                className="min-w-0 truncate"
+              />
+              {timeText && (
+                <span className="shrink-0 text-muted-foreground/75">
+                  {timeText}
+                </span>
+              )}
+            </div>
           </div>
         </div>
-        <div className="space-y-1">
-          <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-            <OverflowTooltipCell
-              text={url}
-              tooltipText={url}
-              className="min-w-0 truncate"
-            />
-            {timeText && (
-              <span className="shrink-0 text-muted-foreground/75">
-                {timeText}
-              </span>
-            )}
+      </div>
+      {primaryAccount && (
+        <div className="flex mt-1 items-center justify-between gap-2 text-[11px] bg-muted rounded-md px-2 py-1">
+          <div className="flex items-center gap-1 text-muted-foreground">
+            <span className="font-mono text-xs">
+              {primaryAccount.username || '未设置'}
+            </span>
           </div>
-          {primaryAccount && (
-            <div className="flex items-center justify-between gap-2 text-[11px]">
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <span>账号密码:</span>
-                <span className="font-mono text-xs">
-                  {primaryAccount.username || '未设置'}
-                </span>
-              </div>
-              {hasTotp && (
-                <div className="shrink-0">
-                  <TotpDisplay totp={primaryAccount.totp} compact={true} />
-                </div>
-              )}
+          {hasTotp && (
+            <div className="shrink-0">
+              <TotpDisplay totp={primaryAccount.totp} compact={true} />
             </div>
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 
@@ -287,71 +289,4 @@ function BookmarkRow({
       /> */}
     </li>
   );
-}
-
-function BookmarkIcon({ url, isScript }: { url: string; isScript: boolean }) {
-  const iconCandidates = useMemo(
-    () => (isScript ? [] : getFaviconCandidates(url)),
-    [isScript, url],
-  );
-  const [candidateIndex, setCandidateIndex] = useState(0);
-
-  useEffect(() => {
-    setCandidateIndex(0);
-  }, [isScript, url]);
-
-  if (isScript) {
-    return <Code2 className="size-5 text-purple-600" aria-hidden />;
-  }
-
-  const handleError = () => {
-    setCandidateIndex((prev) =>
-      prev < iconCandidates.length ? prev + 1 : prev,
-    );
-  };
-
-  const resolvedSrc =
-    iconCandidates[candidateIndex] ??
-    (iconCandidates.length === 0 ? getFaviconUrl(url) : undefined);
-
-  return (
-    <img
-      className="size-6 object-cover"
-      src={resolvedSrc ?? '/globe.svg'}
-      alt="favicon"
-      onError={handleError}
-      loading="lazy"
-      decoding="async"
-      referrerPolicy="no-referrer"
-    />
-  );
-}
-
-function getFaviconCandidates(url: string): string[] {
-  try {
-    const u = new URL(url);
-    const domainUrl = `${u.protocol}//${u.hostname}`;
-
-    const candidates = [
-      // FaviconKit prefers high-res PWA/touch icons and works reliably in mainland China.
-      // `https://api.faviconkit.com/${encodedHost}/192`,
-      // `https://api.faviconkit.com/${encodedHost}/64`,
-      `https://www.google.com/s2/favicons?sz=128&domain_url=${encodeURIComponent(domainUrl)}`,
-      // `https://icons.duckduckgo.com/ip3/${host}.ico`,
-    ];
-
-    const seen = new Set<string>();
-    return candidates.filter((icon) => {
-      if (!icon || seen.has(icon)) return false;
-      seen.add(icon);
-      return true;
-    });
-  } catch {
-    return [];
-  }
-}
-
-function getFaviconUrl(url: string) {
-  const [primary] = getFaviconCandidates(url);
-  return primary ?? '/globe.svg';
 }

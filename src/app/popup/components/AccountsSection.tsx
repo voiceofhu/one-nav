@@ -35,12 +35,11 @@ export function AccountsSection({
 
   return (
     <BookmarkSection
-      title="账号信息"
-      subtitle={
+      title={`账号信息(${
         !editing && accounts.length > 0
           ? `共 ${accounts.length} 个账号`
           : undefined
-      }
+      })`}
     >
       {!editing ? (
         <div className="space-y-3">

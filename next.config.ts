@@ -32,6 +32,7 @@ switch (process.env.NODE_ENV) {
     nextConfig.rewrites = proxy;
     break;
 }
+nextConfig.devIndicators = false;
 
 process.env.NEXT_PUBLIC_BUILD_TIME = format(new Date(), 'yyyy-MM-dd HH:mm');
 

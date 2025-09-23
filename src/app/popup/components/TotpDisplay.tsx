@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import { useCopy } from '@/hooks/use-copy';
 import { Copy } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -17,19 +18,15 @@ export function TotpDisplay({
   compact = false,
 }: TotpDisplayProps) {
   const { code, progress } = useTotp(totp);
+  const { copy } = useCopy();
 
-  async function handleCopy() {
+  function handleCopy() {
     if (!code || code === '000000') {
       toast.error('验证码为空');
       return;
     }
-    try {
-      await navigator.clipboard.writeText(code);
-      toast.success('验证码已复制');
-      onCopy?.();
-    } catch {
-      toast.error('复制失败');
-    }
+    copy(code);
+    onCopy?.();
   }
 
   if (!totp) {

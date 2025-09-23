@@ -70,12 +70,6 @@ export function ContentHeader({
           ) : null}
         </div>
       </div>
-      {isSearching && (
-        <div className="mt-1.5 text-[11px] text-muted-foreground">
-          正在搜索：
-          <span className="font-medium text-foreground/80">{query}</span>
-        </div>
-      )}
     </div>
   );
 }
