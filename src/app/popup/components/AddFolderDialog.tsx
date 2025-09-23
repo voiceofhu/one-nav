@@ -24,6 +24,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ChevronDown, ChevronRight, Folder } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { popupTreeQueryOptions } from '../hooks/use-popup-data';
@@ -85,8 +86,14 @@ export function AddFolderDialog({
         title: values.name.trim(),
         parentId: values.parentId,
       });
+      // 刷新查询缓存
+      await queryClient.invalidateQueries(popupTreeQueryOptions);
+      toast.success('已成功创建文件夹');
       onCreated?.(folder);
       onOpenChange(false);
+    } catch (error) {
+      console.error('Failed to add folder:', error);
+      toast.error('创建文件夹失败，请稍后再试');
     } finally {
       setSaving(false);
     }

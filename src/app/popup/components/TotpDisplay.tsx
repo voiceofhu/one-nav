@@ -8,9 +8,14 @@ import { toast } from 'sonner';
 interface TotpDisplayProps {
   totp?: string;
   onCopy?: () => void;
+  compact?: boolean;
 }
 
-export function TotpDisplay({ totp, onCopy }: TotpDisplayProps) {
+export function TotpDisplay({
+  totp,
+  onCopy,
+  compact = false,
+}: TotpDisplayProps) {
   const { code, progress } = useTotp(totp);
 
   async function handleCopy() {
@@ -32,9 +37,13 @@ export function TotpDisplay({ totp, onCopy }: TotpDisplayProps) {
   }
 
   return (
-    <div className="flex items-center justify-between gap-2">
-      <div className="flex items-center gap-1.5 font-mono text-[12px]">
-        <TotpRing progress={progress} />
+    <div
+      className={`flex items-center gap-2 ${compact ? 'justify-end' : 'justify-between'}`}
+    >
+      <div
+        className={`flex items-center gap-1.5 font-mono ${compact ? 'text-[10px]' : 'text-[12px]'}`}
+      >
+        <TotpRing progress={progress} compact={compact} />
         <span className="tracking-widest select-none">
           {code.slice(0, 3)} {code.slice(3)}
         </span>
@@ -42,25 +51,37 @@ export function TotpDisplay({ totp, onCopy }: TotpDisplayProps) {
       <Button
         variant="ghost"
         size="icon"
-        className="h-6 w-6 rounded-md text-muted-foreground hover:text-foreground"
+        className={`rounded-md text-muted-foreground hover:text-foreground ${
+          compact ? 'h-4 w-4' : 'h-6 w-6'
+        }`}
         onClick={handleCopy}
       >
-        <Copy className="h-3 w-3" />
+        <Copy className={compact ? 'h-2.5 w-2.5' : 'h-3 w-3'} />
       </Button>
     </div>
   );
 }
 
-export function TotpRing({ progress }: { progress: number }) {
+export function TotpRing({
+  progress,
+  compact = false,
+}: {
+  progress: number;
+  compact?: boolean;
+}) {
   const pct = Math.max(0, Math.min(1, progress)) * 100;
+  const size = compact ? 'h-2.5 w-2.5' : 'h-3.5 w-3.5';
+  const margin = compact ? 'm-[1px]' : 'm-[1.5px]';
   return (
-    <div className="relative h-3.5 w-3.5">
+    <div className={`relative ${size}`}>
       <div className="absolute inset-0 rounded-full bg-muted" />
       <div
         className="absolute inset-0 rounded-full"
         style={{ background: `conic-gradient(#22c55e ${pct}%, transparent 0)` }}
       />
-      <div className="absolute inset-0 m-[1.5px] rounded-full bg-background" />
+      <div
+        className={`absolute inset-0 ${margin} rounded-full bg-background`}
+      />
     </div>
   );
 }

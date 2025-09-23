@@ -21,7 +21,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 
 import type { Category } from '../lib/bookmark-utils';
-import { ConfirmDrawer } from './ConfirmDrawer';
+import { ConfirmDialog } from './ConfirmDialog';
 
 type Props = {
   categories: Category[];
@@ -126,7 +126,7 @@ export function CategoriesMenu({
           ))}
         </SidebarMenu>
       </SidebarGroupContent>
-      <ConfirmDrawer
+      <ConfirmDialog
         open={Boolean(confirm?.open)}
         onOpenChange={(open) => setConfirm((c) => (c ? { ...c, open } : c))}
         title="确认删除目录"
@@ -141,6 +141,7 @@ export function CategoriesMenu({
             </span>
           ) : null
         }
+        confirmText="删除"
         onConfirm={async () => {
           if (!confirm) return;
           await removeFolder(confirm.folderId);

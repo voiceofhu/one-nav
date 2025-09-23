@@ -33,7 +33,7 @@ export function BookmarkDetailHeader({
 }: BookmarkDetailHeaderProps) {
   return (
     <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm pb-2">
-      <div className="flex w-full items-center justify-between gap-2  px-4 py-3 border-b">
+      <div className="flex w-full items-center justify-between gap-2 rounded-2xl border border-border/30 bg-white/90 dark:bg-gray-900/90 px-4 py-3 shadow-lg backdrop-blur-sm">
         {editing ? (
           <>
             <Button
@@ -68,7 +68,7 @@ export function BookmarkDetailHeader({
                 {saving ? (
                   <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                 ) : null}
-                完成
+                保存
               </Button>
             </div>
           </>

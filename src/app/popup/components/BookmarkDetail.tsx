@@ -11,16 +11,18 @@ import {
   getBookmarkMeta,
   setBookmarkMeta,
 } from '@/extension/storage';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
+import { popupTreeQueryOptions } from '../hooks/use-popup-data';
 import { usePopupState } from '../state/popup-state';
 import { AccountsSection } from './AccountsSection';
 import {
   BookmarkDetailHeader,
   BookmarkOverviewSection,
 } from './BookmarkHeader';
-import { ConfirmDrawer } from './ConfirmDrawer';
+import { ConfirmDialog } from './ConfirmDialog';
 import { SecurityCard } from './SecurityCard';
 
 export function BookmarkDetail({
@@ -42,6 +44,7 @@ export function BookmarkDetail({
   const [loading, setLoading] = useState(true);
   const [openConfirm, setOpenConfirm] = useState(false);
   const { closeDetail } = usePopupState();
+  const queryClient = useQueryClient();
 
   const refresh = useCallback(async () => {
     const [n, meta] = await Promise.all([getNode(id), getBookmarkMeta(id)]);
@@ -210,17 +213,21 @@ export function BookmarkDetail({
         <SecurityCard account={primaryAccount} />
       ) : null}
 
-      <ConfirmDrawer
+      <ConfirmDialog
         open={openConfirm}
         onOpenChange={setOpenConfirm}
         title="确认删除书签"
         description={
           <span>
-            将长期删除“<strong>{detailTitle}</strong>”。此操作不可撤销。
+            将永久删除“<strong>{detailTitle}</strong>”。此操作不可撤销。
           </span>
         }
+        confirmText="删除"
         onConfirm={async () => {
           await removeBookmark(node.id);
+          // 刷新查询缓存
+          await queryClient.invalidateQueries(popupTreeQueryOptions);
+          toast.success('已删除书签');
           onMutate?.();
           closeDetail();
         }}

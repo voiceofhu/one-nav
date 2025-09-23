@@ -76,7 +76,7 @@ export function AccountCard({
       <div className="mt-4">
         <FieldSection>
           <FieldRow
-            label="用户名"
+            label="账号密码"
             direction="vertical"
             actions={
               account.username ? (
@@ -84,7 +84,7 @@ export function AccountCard({
                   variant="ghost"
                   size="sm"
                   className="h-6 rounded-md px-2 text-[10px] text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-300"
-                  onClick={() => copy(account.username, '用户名')}
+                  onClick={() => copy(account.username, '账号密码')}
                 >
                   <Copy className="mr-1 h-3 w-3" />
                   复制
@@ -232,7 +232,7 @@ export function EditableAccountCard({
             className="h-8 rounded-lg border border-gray-200 bg-white px-3 text-[11px] focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800"
           />
         </FieldRow>
-        <FieldRow label="用户名" direction="vertical">
+        <FieldRow label="账号密码" direction="vertical">
           <Input
             value={account.username}
             placeholder="example@gmail.com"

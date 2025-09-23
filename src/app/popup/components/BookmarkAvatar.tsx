@@ -15,19 +15,29 @@ export function BookmarkAvatar({
   size = 48,
   className,
 }: BookmarkAvatarProps) {
+  const iconCandidates = useMemo(
+    () => (url ? getFaviconCandidates(url) : []),
+    [url],
+  );
   const [candidateIndex, setCandidateIndex] = useState(0);
-  const [failed, setFailed] = useState(false);
-
-  const candidates = useMemo(() => getFaviconCandidates(url), [url]);
-  const src = candidates[candidateIndex];
-  const initials = (title?.trim()?.[0] || 'B').toUpperCase();
 
   useEffect(() => {
     setCandidateIndex(0);
-    setFailed(false);
   }, [url]);
 
-  if (!src || failed) {
+  const handleError = () => {
+    setCandidateIndex((prev) =>
+      prev < iconCandidates.length ? prev + 1 : prev,
+    );
+  };
+
+  const resolvedSrc =
+    iconCandidates[candidateIndex] ??
+    (iconCandidates.length === 0 ? getFaviconUrl(url || '') : undefined);
+
+  const initials = (title?.trim()?.[0] || 'B').toUpperCase();
+
+  if (!resolvedSrc) {
     return (
       <div
         className={`flex shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 text-sm font-bold text-gray-600 shadow-sm dark:from-gray-700 dark:to-gray-800 dark:text-gray-300 ${className || ''}`}
@@ -40,31 +50,39 @@ export function BookmarkAvatar({
 
   return (
     <img
-      src={src}
+      src={resolvedSrc}
       alt="favicon"
       className={`shrink-0 rounded-xl border border-gray-200/80 bg-white object-cover shadow-sm dark:border-gray-700/80 dark:bg-gray-800 ${className || ''}`}
       style={{ height: size, width: size }}
-      onError={() => {
-        if (candidateIndex < candidates.length - 1) {
-          setCandidateIndex((prev) => prev + 1);
-        } else {
-          setFailed(true);
-        }
-      }}
+      onError={handleError}
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
     />
   );
 }
 
-function getFaviconCandidates(url?: string | null): string[] {
-  if (!url) return [];
+function getFaviconCandidates(url: string): string[] {
   try {
     const u = new URL(url);
     const domainUrl = `${u.protocol}//${u.hostname}`;
-    return [
+
+    const candidates = [
       `https://www.google.com/s2/favicons?sz=128&domain_url=${encodeURIComponent(domainUrl)}`,
-      `${domainUrl}/favicon.ico`,
     ];
+
+    const seen = new Set<string>();
+    return candidates.filter((icon) => {
+      if (!icon || seen.has(icon)) return false;
+      seen.add(icon);
+      return true;
+    });
   } catch {
     return [];
   }
+}
+
+function getFaviconUrl(url: string) {
+  const [primary] = getFaviconCandidates(url);
+  return primary ?? '/globe.svg';
 }

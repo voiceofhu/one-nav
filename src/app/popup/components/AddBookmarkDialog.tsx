@@ -193,8 +193,14 @@ export function AddBookmarkDialog({
         }));
         await setBookmarkMeta(node.id, { accounts: normalized });
       }
+      // 刷新查询缓存
+      await queryClient.invalidateQueries(popupTreeQueryOptions);
+      toast.success('已成功添加书签');
       onCreated?.(node);
       onOpenChange(false);
+    } catch (error) {
+      console.error('Failed to add bookmark:', error);
+      toast.error('添加书签失败，请稍后再试');
     } finally {
       setSaving(false);
     }
@@ -403,7 +409,7 @@ export function AddBookmarkDialog({
                         >
                           <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                             <Input
-                              placeholder="账号/用户名"
+                              placeholder="账号密码"
                               className="h-8 text-[13px]"
                               value={
                                 form.getValues(`accounts.${i}.username`) || ''

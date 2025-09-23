@@ -14,13 +14,14 @@ import {
   moveNode,
   removeBookmark,
 } from '@/extension/data';
+import { type AccountCredential, getBookmarkMeta } from '@/extension/storage';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { Code2, MoreHorizontal } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { usePopupState } from '../state/popup-state';
-import { ConfirmDrawer } from './ConfirmDrawer';
+import { TotpDisplay } from './TotpDisplay';
 
 type Props = {
   items: BookmarkNode[];
@@ -113,6 +114,26 @@ function BookmarkRow({
   const title = node.title || url;
   const popup = usePopupState();
   const isActive = popup.detailId === node.id;
+  const [accounts, setAccounts] = useState<AccountCredential[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const meta = await getBookmarkMeta(node.id);
+        if (!active) return;
+        setAccounts(meta?.accounts || []);
+      } catch (error) {
+        console.error('Failed to load bookmark meta:', error);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [node.id]);
+
+  const primaryAccount = accounts[0];
+  const hasTotp = primaryAccount?.totp?.trim();
 
   const timeText = useMemo(() => {
     const d = node.dateAdded;
@@ -186,7 +207,7 @@ function BookmarkRow({
         <BookmarkIcon url={url} isScript={isScript} />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-3 mb-1">
           <OverflowTooltipCell
             text={title}
             tooltipText={title}
@@ -196,7 +217,7 @@ function BookmarkRow({
             <Button
               variant={isActive ? 'default' : 'secondary'}
               size="sm"
-              className="h-7 rounded-lg px-2 text-[11px]"
+              className="h-7 rounded-lg px-3 text-[11px]"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -207,16 +228,33 @@ function BookmarkRow({
             </Button>
           </div>
         </div>
-        <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-          <OverflowTooltipCell
-            text={url}
-            tooltipText={url}
-            className="min-w-0 truncate"
-          />
-          {timeText && (
-            <span className="shrink-0 text-muted-foreground/75">
-              {timeText}
-            </span>
+        <div className="space-y-1">
+          <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+            <OverflowTooltipCell
+              text={url}
+              tooltipText={url}
+              className="min-w-0 truncate"
+            />
+            {timeText && (
+              <span className="shrink-0 text-muted-foreground/75">
+                {timeText}
+              </span>
+            )}
+          </div>
+          {primaryAccount && (
+            <div className="flex items-center justify-between gap-2 text-[11px]">
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <span>账号密码:</span>
+                <span className="font-mono text-xs">
+                  {primaryAccount.username || '未设置'}
+                </span>
+              </div>
+              {hasTotp && (
+                <div className="shrink-0">
+                  <TotpDisplay totp={primaryAccount.totp} compact={true} />
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
