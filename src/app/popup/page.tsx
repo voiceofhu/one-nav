@@ -131,7 +131,7 @@ export default function PopupPage() {
               onAddBookmark={() => setModal('addBookmark')}
             />
           </Suspense>
-          <div className="flex-1 overflow-y-auto px-3 pb-4 pt-3">
+          <div className="flex-1 overflow-y-auto px-1 pb-4 pt-1">
             <Suspense
               fallback={
                 <div className="text-sm p-4 text-muted-foreground">

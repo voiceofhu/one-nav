@@ -507,25 +507,6 @@ function BookmarkCard({
           </div>
         </div>
       </div>
-      {primaryAccount && (
-        <div className="mt-1 flex items-center justify-between gap-2 rounded-md bg-muted/70 px-2 py-1 text-[11px]">
-          <div className="flex min-w-0 items-center gap-1 text-muted-foreground">
-            <span className="truncate font-mono text-xs">
-              {primaryAccount.username || '未设置'}
-            </span>
-            {primaryAccount.label && (
-              <span className="rounded-sm bg-muted-foreground/10 px-1 py-px text-[10px] text-muted-foreground">
-                {primaryAccount.label}
-              </span>
-            )}
-          </div>
-          {primaryAccount.password && (
-            <span className="font-mono text-[10px] text-muted-foreground">
-              密码已保存
-            </span>
-          )}
-        </div>
-      )}
       {totpAccounts.length > 0 && <TotpBadgeSection accounts={totpAccounts} />}
     </div>
   );
@@ -535,21 +516,13 @@ function TotpBadgeSection({ accounts }: { accounts: AccountCredential[] }) {
   const primary = accounts[0];
   const { progress, period } = useTotp(primary?.totp);
   const remaining = primary?.totp ? formatRemaining(period, progress) : null;
+  const pct = Math.max(0, Math.min(progress, 1)) * 100;
 
   return (
-    <div className="mt-2 rounded-xl border border-primary/20 bg-primary/5 px-2 py-2 text-[11px]">
-      <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.25em] text-primary/70">
-        <span>动态验证码</span>
-        {primary?.totp && remaining !== null && (
-          <div className="flex items-center gap-1 text-primary/70">
-            <TotpRing progress={progress} compact />
-            <span className="font-mono tracking-widest">{remaining}</span>
-          </div>
-        )}
-      </div>
-      <div className="mt-2 flex flex-wrap gap-2">
+    <div className="mt-2 rounded-xl   bg-primary/1 text-[11px]">
+      <div className="mt-3 space-y-2">
         {accounts.map((account, index) => (
-          <TotpBadge
+          <TotpRow
             key={`${account.username || index}-${index}`}
             account={account}
             index={index}
@@ -560,7 +533,7 @@ function TotpBadgeSection({ accounts }: { accounts: AccountCredential[] }) {
   );
 }
 
-function TotpBadge({
+function TotpRow({
   account,
   index,
 }: {
@@ -587,26 +560,29 @@ function TotpBadge({
   }
 
   return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      className="group flex min-w-[140px] items-center gap-2 rounded-lg border border-primary/20 bg-white/90 px-2 py-2 text-left shadow-sm transition hover:border-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:border-emerald-900/40 dark:bg-slate-900/80 dark:hover:border-emerald-500/60 dark:hover:bg-slate-900/60"
-    >
-      <TotpRing progress={progress} />
-      <div className="flex flex-col leading-tight">
-        <span className="font-mono text-[13px] tracking-[0.35em] text-primary group-hover:text-primary-600 dark:text-emerald-300 dark:group-hover:text-emerald-200">
-          {formattedCode}
-        </span>
-        <span className="text-[10px] text-muted-foreground group-hover:text-primary/80 dark:group-hover:text-emerald-200">
+    <div className="flex bg-muted/30 rounded-md px-1 items-center justify-between py-1 transition ">
+      <div className="flex min-w-0 flex-col">
+        <span className="truncate text-[11px] font-medium text-muted-foreground">
           {label}
         </span>
+        {remaining !== null && (
+          <span className="text-[9px] text-muted-foreground/70">
+            剩余 {remaining}
+          </span>
+        )}
       </div>
-      {remaining !== null && (
-        <span className="ml-auto text-[10px] font-medium text-muted-foreground group-hover:text-primary/80 dark:group-hover:text-emerald-200">
-          {remaining}
-        </span>
-      )}
-    </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          handleCopy();
+        }}
+        className="ml-3 font-mono text-[13px] tracking-[0.1em] text-primary p-1 rounded-md transition hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+      >
+        {formattedCode}
+      </button>
+    </div>
   );
 }
 
