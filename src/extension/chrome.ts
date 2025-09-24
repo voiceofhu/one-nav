@@ -6,6 +6,7 @@ export interface BookmarkNode {
   title: string;
   url?: string;
   parentId?: string;
+  index?: number;
   dateAdded?: number;
   dateGroupModified?: number;
   children?: BookmarkNode[];
@@ -82,6 +83,21 @@ interface ChromeTabsAPI {
     createProperties: { url: string },
     callback?: (tab: ChromeTab) => void,
   ): void;
+  executeScript?(
+    tabId: number | { tabId: number },
+    details: { code: string },
+    callback?: (results: unknown[]) => void,
+  ): void;
+}
+
+interface ChromeCommandDefinition {
+  name?: string;
+  description?: string;
+  shortcut?: string;
+}
+
+interface ChromeCommandsAPI {
+  getAll(callback: (commands: ChromeCommandDefinition[]) => void): void;
 }
 
 interface MinimalChrome {
@@ -91,7 +107,22 @@ interface MinimalChrome {
     id?: string;
     openOptionsPage?: () => void;
     getURL?: (path: string) => string;
+    lastError?: { message?: string };
   };
+  scripting?: {
+    executeScript(
+      injection: {
+        target: { tabId: number };
+        func?: (...args: unknown[]) => void;
+        args?: unknown[];
+        world?: 'ISOLATED' | 'MAIN';
+        injectImmediately?: boolean;
+        files?: string[];
+      },
+      callback?: (results: Array<{ frameId: number; result: unknown }>) => void,
+    ): void;
+  };
+  commands?: ChromeCommandsAPI;
 }
 
 declare global {
@@ -115,6 +146,160 @@ export async function getActiveTab() {
       resolve(tabs?.[0]);
     });
   });
+}
+
+export const PRIMARY_SHORTCUT_COMMAND = '_execute_action';
+
+const RESTRICTED_EXEC_PROTOCOLS = [
+  'chrome://',
+  'chrome-extension://',
+  'chrome-untrusted://',
+  'chrome-search://',
+  'edge://',
+  'brave://',
+  'vivaldi://',
+  'opera://',
+  'about:',
+  'devtools://',
+  'view-source:',
+];
+
+export async function runBookmarklet(code: string) {
+  const trimmed = code?.trim();
+  if (!trimmed) return;
+  const ch = ensureChrome();
+  if (!ch) throw new Error('Chrome APIs unavailable');
+  const tabs = ch.tabs;
+  if (!tabs?.query) throw new Error('Chrome tabs API unavailable');
+  const activeTab = await new Promise<ChromeTab | undefined>((resolve) => {
+    tabs.query({ active: true, currentWindow: true }, (t) => {
+      resolve(t?.[0]);
+    });
+  });
+  const tabId = activeTab?.id;
+  if (!tabId || typeof tabId !== 'number') {
+    throw new Error('Active tab unavailable');
+  }
+  const activeUrl = activeTab?.url?.trim().toLowerCase() ?? '';
+  if (
+    activeUrl &&
+    RESTRICTED_EXEC_PROTOCOLS.some((prefix) => activeUrl.startsWith(prefix))
+  ) {
+    throw new Error('Bookmarklet execution blocked on restricted page');
+  }
+
+  const scripting = ch.scripting;
+  if (scripting?.executeScript) {
+    return new Promise<void>((resolve, reject) => {
+      try {
+        scripting.executeScript(
+          {
+            target: { tabId },
+            world: 'MAIN',
+            func: (...fnArgs: unknown[]) => {
+              const snippet = typeof fnArgs?.[0] === 'string' ? fnArgs[0] : '';
+              if (!snippet) return;
+              try {
+                // Execute bookmarklet code inside the page context
+                eval(snippet);
+              } catch (err) {
+                console.error('Bookmarklet execution failed', err);
+                throw err;
+              }
+            },
+            args: [trimmed],
+          },
+          () => {
+            const lastError = ch.runtime?.lastError;
+            if (lastError) {
+              reject(
+                new Error(lastError.message || 'Bookmarklet injection failed'),
+              );
+              return;
+            }
+            resolve();
+          },
+        );
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  const legacyExecute = tabs?.executeScript
+    ? tabs.executeScript.bind(tabs)
+    : undefined;
+
+  if (legacyExecute) {
+    return new Promise<void>((resolve, reject) => {
+      try {
+        legacyExecute(tabId, { code: trimmed }, () => {
+          const lastError = ch.runtime?.lastError;
+          if (lastError) {
+            reject(
+              new Error(lastError.message || 'Bookmarklet execution failed'),
+            );
+            return;
+          }
+          resolve();
+        });
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  throw new Error('No available API to execute bookmarklet');
+}
+
+export async function openUrlInNewTab(url: string) {
+  const trimmed = url?.trim();
+  if (!trimmed) return;
+  const ch = ensureChrome();
+  if (!ch) throw new Error('Chrome APIs unavailable');
+  const tabs = ch.tabs;
+  const create = tabs?.create;
+  if (!create) throw new Error('Chrome tabs API unavailable');
+
+  return new Promise<ChromeTab | undefined>((resolve, reject) => {
+    try {
+      create({ url: trimmed }, (tab) => {
+        const lastError = ch.runtime?.lastError;
+        if (lastError) {
+          reject(
+            new Error(lastError.message || 'Failed to open URL in new tab'),
+          );
+          return;
+        }
+        resolve(tab);
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+export async function getExtensionCommands() {
+  const ch = ensureChrome();
+  const commands = ch?.commands;
+  if (!commands?.getAll) return [] as ChromeCommandDefinition[];
+  return new Promise<ChromeCommandDefinition[]>((resolve) => {
+    try {
+      commands.getAll((items) => resolve(items ?? []));
+    } catch (error) {
+      console.error('Failed to read extension commands', error);
+      resolve([]);
+    }
+  });
+}
+
+export async function openShortcutSettings() {
+  try {
+    await openUrlInNewTab('chrome://extensions/shortcuts');
+  } catch (error) {
+    console.error('Failed to open shortcut settings', error);
+    throw error;
+  }
 }
 
 export async function addBookmark(input: {

@@ -1,10 +1,14 @@
 import type { BookmarkNode } from '@/extension/data';
 
+export type CategoryMode = 'root-direct' | 'subtree';
+
 export type Category = {
   id: string;
   label: string;
   folderId: string;
-  mode: 'root-direct' | 'subtree';
+  mode: CategoryMode;
+  parentId: string;
+  orderIndex?: number;
 };
 
 export type TagItem = {
@@ -103,6 +107,8 @@ export function buildCategories(tree: BookmarkNode[]): Category[] {
         label: `${root.title || 'Root'}/根目录`,
         folderId: root.id,
         mode: 'root-direct',
+        parentId: root.parentId ?? '0',
+        orderIndex: root.index,
       });
     }
     const subfolders = (root.children ?? []).filter((child) => !child.url);
@@ -112,6 +118,8 @@ export function buildCategories(tree: BookmarkNode[]): Category[] {
         label: `${root.title || 'Root'}/${folder.title || 'Untitled'}`,
         folderId: folder.id,
         mode: 'subtree',
+        parentId: root.id,
+        orderIndex: folder.index,
       });
     }
   }

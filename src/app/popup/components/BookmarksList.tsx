@@ -2,122 +2,339 @@
 
 import { OverflowTooltipCell } from '@/components/overflow-tooltip';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  type BookmarkNode,
-  getChildren,
-  moveNode,
-  removeBookmark,
-} from '@/extension/data';
+import { openUrlInNewTab, runBookmarklet } from '@/extension/chrome';
+import { type BookmarkNode } from '@/extension/data';
 import { type AccountCredential, getBookmarkMeta } from '@/extension/storage';
-import { formatDistanceToNow } from 'date-fns';
-import { zhCN } from 'date-fns/locale';
-import { Code2, MoreHorizontal } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { formatToNow } from '@/lib/utils';
+import {
+  type DragEndEvent,
+  type DragStartEvent,
+  type DraggableAttributes,
+  type DraggableSyntheticListeners,
+  useDndMonitor,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { ExternalLink, Play } from 'lucide-react';
+import {
+  type CSSProperties,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { toast } from 'sonner';
 
 import { usePopupState } from '../state/popup-state';
 import { BookmarkAvatar } from './BookmarkAvatar';
+import {
+  requiresChromeTabsNavigation,
+  stripJavascriptPrefix,
+  toLinkErrorMessage,
+  toScriptErrorMessage,
+} from './BookmarkUrlAction';
 import { TotpDisplay } from './TotpDisplay';
 
 type Props = {
   items: BookmarkNode[];
   showLoading: boolean;
   isExt: boolean;
-  onMutate?: () => void;
   // When set, enables drag-sort within this parent folder
   sortableParentId?: string;
+  onBookmarkMove: (
+    id: string,
+    destination: { parentId?: string; index?: number },
+  ) => Promise<void>;
 };
 
 export function BookmarksList({
   items,
   showLoading,
   isExt,
-  onMutate,
   sortableParentId,
+  onBookmarkMove,
 }: Props) {
   if (!isExt) {
     return (
       <div>
-        <div className="text-sm text-orange-600 mb-2">
+        <div className="mb-2 text-sm text-orange-600">
           非扩展环境预览：Chrome API 不可用
         </div>
-        {renderList(items, showLoading, onMutate, sortableParentId)}
+        <BookmarksListContent
+          items={items}
+          showLoading={showLoading}
+          sortableParentId={sortableParentId}
+          onBookmarkMove={onBookmarkMove}
+        />
       </div>
     );
   }
-  return renderList(items, showLoading, onMutate, sortableParentId);
+
+  return (
+    <BookmarksListContent
+      items={items}
+      showLoading={showLoading}
+      sortableParentId={sortableParentId}
+      onBookmarkMove={onBookmarkMove}
+    />
+  );
 }
 
-function renderList(
-  items: BookmarkNode[],
-  showLoading: boolean,
-  onMutate?: () => void,
-  sortableParentId?: string,
-) {
+function BookmarksListContent({
+  items,
+  showLoading,
+  sortableParentId,
+  onBookmarkMove,
+}: {
+  items: BookmarkNode[];
+  showLoading: boolean;
+  sortableParentId?: string;
+  onBookmarkMove: (
+    id: string,
+    destination: { parentId?: string; index?: number },
+  ) => Promise<void>;
+}) {
   if (showLoading) {
-    return <div className="text-sm p-4 text-muted-foreground">加载中...</div>;
+    return <div className="p-4 text-sm text-muted-foreground">加载中...</div>;
   }
+
   if (items.length === 0) {
     return <div className="text-sm text-muted-foreground">暂无书签</div>;
   }
   return (
-    <ul
-      className="mt-1.5 space-y-1.5 px-1"
-      onDragOver={(e) => {
-        // allow drop at end of list
-        if (sortableParentId) e.preventDefault();
-      }}
-      onDrop={async (e) => {
-        const dragId = e.dataTransfer.getData('text/plain');
-        if (!sortableParentId || !dragId) return;
-        try {
-          const children = await getChildren(sortableParentId);
-          const without = children.filter((c) => c.id !== dragId);
-          // place at end
-          await moveNode(dragId, {
-            parentId: sortableParentId,
-            index: without.length,
-          });
-          onMutate?.();
-        } catch (err) {
-          console.error(err);
-        }
-      }}
-    >
-      {items.map((b) => (
-        <BookmarkRow
-          key={b.id}
-          node={b}
-          onMutate={onMutate}
-          sortableParentId={sortableParentId}
-        />
-      ))}
-    </ul>
+    <SortableBookmarksList
+      items={items}
+      sortableParentId={sortableParentId}
+      onBookmarkMove={onBookmarkMove}
+    />
   );
 }
 
-function BookmarkRow({
-  node,
-  onMutate,
+type SortableBookmarksListProps = {
+  items: BookmarkNode[];
+  sortableParentId?: string;
+  onBookmarkMove: (
+    id: string,
+    destination: { parentId?: string; index?: number },
+  ) => Promise<void>;
+};
+
+function SortableBookmarksList({
+  items,
   sortableParentId,
+  onBookmarkMove,
+}: SortableBookmarksListProps) {
+  const [orderedItems, setOrderedItems] = useState(items);
+  const itemsRef = useRef(items);
+
+  useEffect(() => {
+    itemsRef.current = items;
+    setOrderedItems(items);
+  }, [items]);
+
+  const itemIds = useMemo(
+    () => orderedItems.map((item) => item.id),
+    [orderedItems],
+  );
+  const allowSorting = Boolean(sortableParentId);
+  useDndMonitor({
+    onDragStart(event: DragStartEvent) {
+      const data = event.active.data.current as
+        | { type: 'bookmark'; node: BookmarkNode }
+        | undefined;
+      if (data?.type !== 'bookmark') return;
+    },
+    onDragCancel(event) {
+      const data = event.active.data.current as
+        | { type: 'bookmark' }
+        | undefined;
+      if (data?.type !== 'bookmark') return;
+      setOrderedItems(items);
+    },
+    onDragEnd(event: DragEndEvent) {
+      const data = event.active.data.current as
+        | {
+            type: 'bookmark';
+            node: BookmarkNode;
+          }
+        | undefined;
+      if (data?.type !== 'bookmark') return;
+
+      const overData = event.over?.data.current as
+        | { type: 'bookmark'; node: BookmarkNode }
+        | { type: 'category'; folderId: string }
+        | undefined;
+
+      if (!event.over) {
+        setOrderedItems(itemsRef.current);
+        return;
+      }
+
+      if (overData?.type === 'bookmark') {
+        if (!sortableParentId) {
+          setOrderedItems(itemsRef.current);
+          return;
+        }
+        const activeIndex = orderedItems.findIndex(
+          (item) => item.id === event.active.id,
+        );
+        const overIndex = orderedItems.findIndex(
+          (item) => item.id === event.over?.id,
+        );
+
+        if (
+          activeIndex === -1 ||
+          overIndex === -1 ||
+          activeIndex === overIndex
+        ) {
+          setOrderedItems(itemsRef.current);
+          return;
+        }
+
+        const nextItems = arrayMove(orderedItems, activeIndex, overIndex);
+        setOrderedItems(nextItems);
+
+        void (async () => {
+          try {
+            await onBookmarkMove(String(event.active.id), {
+              parentId: sortableParentId,
+              index: overIndex,
+            });
+          } catch (error) {
+            console.error('Failed to reorder bookmark', error);
+            setOrderedItems(itemsRef.current);
+            toast.error('排序失败，请稍后重试');
+          }
+        })();
+        return;
+      }
+
+      if (overData?.type === 'category') {
+        const destinationParent = overData.folderId;
+        const currentParent = data.node.parentId;
+        if (destinationParent === currentParent) {
+          setOrderedItems(itemsRef.current);
+          return;
+        }
+
+        setOrderedItems((prev) =>
+          prev.filter((item) => item.id !== event.active.id),
+        );
+
+        void (async () => {
+          try {
+            await onBookmarkMove(String(event.active.id), {
+              parentId: destinationParent,
+            });
+          } catch (error) {
+            console.error('Failed to move bookmark to folder', error);
+            setOrderedItems(itemsRef.current);
+            toast.error('移动失败，请稍后重试');
+          }
+        })();
+        return;
+      }
+
+      setOrderedItems(itemsRef.current);
+    },
+  });
+
+  return (
+    <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
+      <ul className="mt-1.5 space-y-1.5 px-1">
+        {orderedItems.map((node) => (
+          <SortableBookmarkListItem
+            key={node.id}
+            node={node}
+            isSortable={allowSorting}
+          />
+        ))}
+      </ul>
+    </SortableContext>
+  );
+}
+
+function SortableBookmarkListItem({
+  node,
+  isSortable,
 }: {
   node: BookmarkNode;
-  onMutate?: () => void;
-  sortableParentId?: string;
+  isSortable: boolean;
 }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: node.id,
+    data: {
+      type: 'bookmark' as const,
+      node,
+    },
+    disabled: false,
+  });
+
+  const style: CSSProperties | undefined = transform
+    ? {
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }
+    : { transition };
+
+  return (
+    <li>
+      <BookmarkCard
+        node={node}
+        isSortable={isSortable}
+        dragAttributes={attributes}
+        dragListeners={listeners}
+        dragStyle={style}
+        setNodeRef={setNodeRef}
+        isDragging={isDragging}
+      />
+    </li>
+  );
+}
+
+type BookmarkCardProps = {
+  node: BookmarkNode;
+  isSortable?: boolean;
+  dragAttributes?: DraggableAttributes;
+  dragListeners?: DraggableSyntheticListeners;
+  dragStyle?: CSSProperties;
+  setNodeRef?: (element: HTMLDivElement | null) => void;
+  isDragging?: boolean;
+  disableInteractions?: boolean;
+  loadMeta?: boolean;
+};
+
+function BookmarkCard({
+  node,
+  isSortable = false,
+  dragAttributes,
+  dragListeners,
+  dragStyle,
+  setNodeRef,
+  isDragging = false,
+  disableInteractions = false,
+  loadMeta = true,
+}: BookmarkCardProps) {
+  const popup = usePopupState();
   const url = node.url || '';
   const isScript = url.trim().toLowerCase().startsWith('javascript:');
   const title = node.title || url;
-  const popup = usePopupState();
-  const isActive = popup.detailId === node.id;
   const [accounts, setAccounts] = useState<AccountCredential[]>([]);
 
   useEffect(() => {
+    if (!loadMeta) return;
     let active = true;
     (async () => {
       try {
@@ -131,7 +348,7 @@ function BookmarkRow({
     return () => {
       active = false;
     };
-  }, [node.id]);
+  }, [loadMeta, node.id]);
 
   const primaryAccount = accounts[0];
   const hasTotp = primaryAccount?.totp?.trim();
@@ -140,76 +357,115 @@ function BookmarkRow({
     const d = node.dateAdded;
     if (!d) return null;
     try {
-      return formatDistanceToNow(new Date(d), {
-        addSuffix: true,
-        locale: zhCN,
-      });
+      return formatToNow(new Date(d));
     } catch {
       return null;
     }
   }, [node.dateAdded]);
 
-  function gotoDetail() {
+  const isActive = popup.detailId === node.id;
+
+  const clickable = !disableInteractions;
+
+  const pointerClass = disableInteractions
+    ? ' cursor-default'
+    : isSortable
+      ? ' cursor-grab active:cursor-grabbing'
+      : clickable
+        ? ' cursor-pointer'
+        : ' cursor-default';
+
+  const baseRowClass =
+    'group rounded-xl border px-3 py-2.5 text-[13px] transition hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ' +
+    (isActive
+      ? 'border-primary/70 bg-primary/10 shadow-sm'
+      : 'border-border/60 bg-card/70') +
+    pointerClass +
+    (isDragging ? ' opacity-95 ring-2 ring-primary/50 shadow-lg' : '');
+
+  const style: CSSProperties = {
+    ...(dragStyle ?? {}),
+    pointerEvents: disableInteractions ? 'none' : undefined,
+  };
+
+  const handleRowClick = (event?: React.SyntheticEvent) => {
+    if (!clickable) return;
+    event?.preventDefault();
+    event?.stopPropagation();
     popup.openDetail(node.id);
-  }
+  };
 
-  async function handleDelete() {
-    setConfirmOpen(true);
-  }
+  const handleOpenAction = async (
+    event: React.MouseEvent<HTMLButtonElement>,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
 
-  const [confirmOpen, setConfirmOpen] = useState(false);
+    const trimmed = url.trim();
+    if (!trimmed) return;
 
-  const RowInner = (
-    <div
-      className={
-        'rounded-xl border px-3 py-2.5 text-[13px] shadow-sm transition hover:border-border hover:bg-card hover:shadow-md ' +
-        (isActive
-          ? 'border-primary/70 bg-primary/10'
-          : 'border-border/60 bg-card/70') +
-        (sortableParentId ? ' cursor-grab active:cursor-grabbing' : '')
+    if (isScript) {
+      const code = stripJavascriptPrefix(trimmed);
+      if (!code) return;
+      try {
+        await runBookmarklet(code);
+      } catch (error) {
+        console.error('Failed to execute bookmarklet', error);
+        toast.error(toScriptErrorMessage(error));
       }
-      draggable={Boolean(sortableParentId)}
-      onDragStart={(e) => {
-        if (!sortableParentId) return;
-        e.dataTransfer.setData('text/plain', node.id);
-        // Avoid opening the link while dragging
-        e.dataTransfer.effectAllowed = 'move';
-      }}
-      onDragOver={(e) => {
-        if (!sortableParentId) return;
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-      }}
-      onDrop={async (e) => {
-        if (!sortableParentId) return;
-        e.preventDefault();
-        const dragId = e.dataTransfer.getData('text/plain');
-        if (!dragId || dragId === node.id) return;
-        try {
-          const rect = (
-            e.currentTarget as HTMLDivElement
-          ).getBoundingClientRect();
-          const before = e.clientY < rect.top + rect.height / 2;
-          const children = await getChildren(sortableParentId);
-          const without = children.filter((c) => c.id !== dragId);
-          const targetIdx = without.findIndex((c) => c.id === node.id);
-          const destIndex = Math.max(0, before ? targetIdx : targetIdx + 1);
-          await moveNode(dragId, {
-            parentId: sortableParentId,
-            index: destIndex,
-          });
-          onMutate?.();
-        } catch (err) {
-          console.error(err);
-        }
-      }}
+      return;
+    }
+
+    try {
+      if (requiresChromeTabsNavigation(trimmed)) {
+        await openUrlInNewTab(trimmed);
+      } else if (typeof window !== 'undefined') {
+        window.open(trimmed, '_blank', 'noopener,noreferrer');
+      }
+    } catch (error) {
+      console.error('Failed to open bookmark link', error);
+      toast.error(toLinkErrorMessage(error));
+    }
+  };
+
+  const interactiveAccessibilityProps =
+    clickable && !isSortable
+      ? ({
+          role: 'button' as const,
+          tabIndex: 0,
+        } satisfies Partial<DraggableAttributes>)
+      : undefined;
+
+  const effectiveDragAttributes =
+    isSortable && !disableInteractions ? dragAttributes : undefined;
+  const effectiveDragListeners =
+    !disableInteractions && isSortable ? dragListeners : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={baseRowClass}
+      style={style}
+      {...(effectiveDragAttributes ?? {})}
+      {...(interactiveAccessibilityProps ?? {})}
+      onClick={clickable ? handleRowClick : undefined}
+      onKeyDown={
+        clickable
+          ? (event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                handleRowClick(event);
+              }
+            }
+          : undefined
+      }
+      {...(effectiveDragListeners ?? {})}
     >
       <div className="flex gap-2">
-        <div className="flex shrink-0 items-center justify-center overflow-hidden  ">
+        <div className="flex shrink-0 items-center justify-center overflow-hidden">
           <BookmarkAvatar url={url} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-3 mb-1">
+          <div className="mb-1 flex items-center justify-between gap-3">
             <OverflowTooltipCell
               text={title}
               tooltipText={title}
@@ -217,16 +473,17 @@ function BookmarkRow({
             />
             <div className="flex shrink-0 items-center gap-1">
               <Button
-                variant={isActive ? 'default' : 'secondary'}
-                size="sm"
-                className="h-7 rounded-lg px-3 text-[11px]"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  gotoDetail();
-                }}
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 rounded-lg bg-muted/30 hover:bg-primary/10"
+                onClick={handleOpenAction}
+                aria-label={isScript ? '执行脚本' : '打开链接'}
               >
-                {'详情'}
+                {isScript ? (
+                  <Play className="h-4 w-4" />
+                ) : (
+                  <ExternalLink className="h-4 w-4" />
+                )}
               </Button>
             </div>
           </div>
@@ -247,7 +504,7 @@ function BookmarkRow({
         </div>
       </div>
       {primaryAccount && (
-        <div className="flex mt-1 items-center justify-between gap-2 text-[11px] bg-muted rounded-md px-2 py-1">
+        <div className="mt-1 flex items-center justify-between gap-2 rounded-md bg-muted px-2 py-1 text-[11px]">
           <div className="flex items-center gap-1 text-muted-foreground">
             <span className="font-mono text-xs">
               {primaryAccount.username || '未设置'}
@@ -261,32 +518,5 @@ function BookmarkRow({
         </div>
       )}
     </div>
-  );
-
-  const clickable = !sortableParentId && !isScript;
-  return (
-    <li>
-      {clickable ? (
-        <a href={url} target="_blank" rel="noreferrer" className="block">
-          {RowInner}
-        </a>
-      ) : (
-        RowInner
-      )}
-      {/* <ConfirmDrawer
-        open={confirmOpen}
-        onOpenChange={setConfirmOpen}
-        title="确认删除书签"
-        description={
-          <span>
-            将长期删除“<strong>{title}</strong>”。此操作不可撤销。
-          </span>
-        }
-        onConfirm={async () => {
-          await removeBookmark(node.id);
-          onMutate?.();
-        }}
-      /> */}
-    </li>
   );
 }

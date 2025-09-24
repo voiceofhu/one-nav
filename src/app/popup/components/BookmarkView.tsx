@@ -31,13 +31,17 @@ export function BookmarkView({
   const detailTitle = node.title?.trim() || host || '未命名书签';
 
   return (
-    <div className="mx-auto flex overflow-auto h-auto pb-6 w-full flex-col text-[12px] leading-snug text-foreground overflow-hidden">
+    <div className="mx-auto flex overflow-auto h-auto pb-6 w-full flex-col text-[12px] leading-snug text-foreground ">
       <BookmarkViewHeader title={detailTitle} onEdit={onEdit} />
-      <BookmarkInfoSection url={node.url || ''} updatedAt={updatedAt} />
+      <BookmarkInfoSection
+        title={detailTitle}
+        url={node.url || ''}
+        updatedAt={updatedAt}
+      />
       <AccountDisplayList accounts={accounts} />
       {primaryAccount && <SecurityCard account={primaryAccount} />}
 
-      <BookmarkActions onDelete={onDelete} onClose={onClose} />
+      {/* <BookmarkActions onDelete={onDelete} onClose={onClose} /> */}
     </div>
   );
 }

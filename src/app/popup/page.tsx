@@ -1,8 +1,8 @@
 'use client';
 
-import { isExtensionContext, isMock } from '@/extension/data';
+import { isExtensionContext, isMock, moveNode } from '@/extension/data';
 import { LockKeyhole } from 'lucide-react';
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AddBookmarkDialog } from './components/AddBookmarkDialog';
 import { AddFolderDialog } from './components/AddFolderDialog';
@@ -101,6 +101,17 @@ export default function PopupPage() {
     [categoryId],
   );
 
+  const handleBookmarkMove = useCallback(
+    async (
+      bookmarkId: string,
+      destination: { parentId?: string; index?: number },
+    ) => {
+      await moveNode(bookmarkId, destination);
+      await invalidate();
+    },
+    [invalidate],
+  );
+
   return (
     <>
       <div className="flex h-full w-full  text-[13px]">
@@ -132,7 +143,10 @@ export default function PopupPage() {
                 isExt={isExt}
                 showLoading={showLoading}
                 items={items}
-                onMutate={invalidate}
+                sortableParentId={
+                  view === 'category' ? currentFolderId : undefined
+                }
+                onBookmarkMove={handleBookmarkMove}
               />
             </Suspense>
           </div>

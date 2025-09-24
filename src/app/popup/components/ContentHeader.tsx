@@ -48,10 +48,11 @@ export function ContentHeader({
         </div>
       </div>
       <div className="mt-1.5 flex items-center gap-2">
-        <div className="flex h-8 flex-1 items-center rounded-lg border border-transparent bg-[#eee] px-2.5 text-xs text-muted-foreground transition focus-within:bg-muted">
+        <div className="flex h-8 flex-1 items-center rounded-lg border border-transparent bg-muted px-2.5 text-xs text-muted-foreground transition focus-within:bg-muted">
           <Search className="mr-1.5 size-3.5" />
           <Input
             value={query}
+            autoFocus
             onChange={(e) => onQueryChange(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') onSubmitSearch();

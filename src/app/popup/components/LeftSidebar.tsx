@@ -1,7 +1,6 @@
 'use client';
 
 import { SidebarContent, SidebarHeader } from '@/components/ui/sidebar';
-import { Bookmark } from 'lucide-react';
 
 import { CategoriesMenu } from '../components/CategoriesMenu';
 import { QuickMenu } from '../components/QuickMenu';

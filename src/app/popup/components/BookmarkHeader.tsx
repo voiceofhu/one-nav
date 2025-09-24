@@ -34,7 +34,7 @@ export function BookmarkDetailHeader({
 }: BookmarkDetailHeaderProps) {
   return (
     <div className="sticky top-0 z-10  pb-2 bg-background/95">
-      <div className="flex w-full items-center justify-between gap-2 rounded-b-2xl  px-4 py-3 border-b dark:border-primary/30 dark:bg-primary/10">
+      <div className="flex w-full items-center justify-between gap-2 rounded-b-2xl  px-4 py-3  dark:bg-primary/10">
         {editing ? (
           <>
             <Button

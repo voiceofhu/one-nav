@@ -5,6 +5,15 @@ import {
   SidebarInset,
   SidebarProvider,
 } from '@/components/ui/sidebar';
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import clsx from 'clsx';
 import { type CSSProperties, Suspense, useEffect, useState } from 'react';
 
@@ -44,9 +53,18 @@ export default function PopupLayout({
     };
   }, []);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 6 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
   if (!mounted) {
     return <div className="p-4 text-sm text-muted-foreground">加载中...</div>;
   }
+
   return (
     <Suspense fallback={<div className="p-4">Loading...</div>}>
       <style></style>
@@ -70,36 +88,38 @@ export default function PopupLayout({
           </div>
 
           {/* 主体结构：左侧 Sidebar + 右侧 Inset（children） */}
-          <div className="relative z-10 flex h-full w-full">
-            <Sidebar
-              // collapsible="offcanvas"
-              className={clsx(
-                ' pointer-events-auto bg-transparent p-0 rounded-none',
-              )}
-            >
-              <Suspense
-                fallback={
-                  <div className="text-sm p-4 text-muted-foreground">
-                    加载中...
-                  </div>
-                }
+          <DndContext sensors={sensors} collisionDetection={closestCenter}>
+            <div className="relative z-10 flex h-full w-full">
+              <Sidebar
+                // collapsible="offcanvas"
+                className={clsx(
+                  ' pointer-events-auto bg-transparent p-0 rounded-none',
+                )}
               >
-                <LeftSidebar />
-              </Suspense>
-            </Sidebar>
+                <Suspense
+                  fallback={
+                    <div className="text-sm p-4 text-muted-foreground">
+                      加载中...
+                    </div>
+                  }
+                >
+                  <LeftSidebar />
+                </Suspense>
+              </Sidebar>
 
-            <SidebarInset className="flex h-full flex-1 overflow-hidden ">
-              <Suspense
-                fallback={
-                  <div className="text-sm p-4 text-muted-foreground">
-                    加载中...
-                  </div>
-                }
-              >
-                {children}
-              </Suspense>
-            </SidebarInset>
-          </div>
+              <SidebarInset className="flex h-full flex-1 overflow-hidden ">
+                <Suspense
+                  fallback={
+                    <div className="text-sm p-4 text-muted-foreground">
+                      加载中...
+                    </div>
+                  }
+                >
+                  {children}
+                </Suspense>
+              </SidebarInset>
+            </div>
+          </DndContext>
         </SidebarProvider>
       </PopupStateProvider>
     </Suspense>
