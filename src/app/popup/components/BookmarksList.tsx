@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { openUrlInNewTab, runBookmarklet } from '@/extension/chrome';
 import { type BookmarkNode } from '@/extension/data';
 import { type AccountCredential, getBookmarkMeta } from '@/extension/storage';
+import { useCopy } from '@/hooks/use-copy';
 import { formatToNow } from '@/lib/utils';
 import {
   type DragEndEvent,
@@ -38,7 +39,7 @@ import {
   toLinkErrorMessage,
   toScriptErrorMessage,
 } from './BookmarkUrlAction';
-import { TotpDisplay } from './TotpDisplay';
+import { TotpRing, useTotp } from './TotpDisplay';
 
 type Props = {
   items: BookmarkNode[];
@@ -351,7 +352,10 @@ function BookmarkCard({
   }, [loadMeta, node.id]);
 
   const primaryAccount = accounts[0];
-  const hasTotp = primaryAccount?.totp?.trim();
+  const totpAccounts = useMemo(
+    () => accounts.filter((acc) => acc.totp?.trim()),
+    [accounts],
+  );
 
   const timeText = useMemo(() => {
     const d = node.dateAdded;
@@ -504,19 +508,117 @@ function BookmarkCard({
         </div>
       </div>
       {primaryAccount && (
-        <div className="mt-1 flex items-center justify-between gap-2 rounded-md bg-muted px-2 py-1 text-[11px]">
-          <div className="flex items-center gap-1 text-muted-foreground">
-            <span className="font-mono text-xs">
+        <div className="mt-1 flex items-center justify-between gap-2 rounded-md bg-muted/70 px-2 py-1 text-[11px]">
+          <div className="flex min-w-0 items-center gap-1 text-muted-foreground">
+            <span className="truncate font-mono text-xs">
               {primaryAccount.username || '未设置'}
             </span>
+            {primaryAccount.label && (
+              <span className="rounded-sm bg-muted-foreground/10 px-1 py-px text-[10px] text-muted-foreground">
+                {primaryAccount.label}
+              </span>
+            )}
           </div>
-          {hasTotp && (
-            <div className="shrink-0">
-              <TotpDisplay totp={primaryAccount.totp} compact={true} />
-            </div>
+          {primaryAccount.password && (
+            <span className="font-mono text-[10px] text-muted-foreground">
+              密码已保存
+            </span>
           )}
         </div>
       )}
+      {totpAccounts.length > 0 && <TotpBadgeSection accounts={totpAccounts} />}
     </div>
   );
+}
+
+function TotpBadgeSection({ accounts }: { accounts: AccountCredential[] }) {
+  const primary = accounts[0];
+  const { progress, period } = useTotp(primary?.totp);
+  const remaining = primary?.totp ? formatRemaining(period, progress) : null;
+
+  return (
+    <div className="mt-2 rounded-xl border border-primary/20 bg-primary/5 px-2 py-2 text-[11px]">
+      <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.25em] text-primary/70">
+        <span>动态验证码</span>
+        {primary?.totp && remaining !== null && (
+          <div className="flex items-center gap-1 text-primary/70">
+            <TotpRing progress={progress} compact />
+            <span className="font-mono tracking-widest">{remaining}</span>
+          </div>
+        )}
+      </div>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {accounts.map((account, index) => (
+          <TotpBadge
+            key={`${account.username || index}-${index}`}
+            account={account}
+            index={index}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TotpBadge({
+  account,
+  index,
+}: {
+  account: AccountCredential;
+  index: number;
+}) {
+  const label =
+    account.label?.trim() || account.username?.trim() || `账号 ${index + 1}`;
+  const { code, progress, period } = useTotp(account.totp);
+  const { copy } = useCopy();
+  const formattedCode = formatTotpCode(code);
+  const remaining = formatRemaining(period, progress);
+
+  function handleCopy() {
+    if (!account.totp?.trim()) {
+      toast.error('未配置验证码');
+      return;
+    }
+    if (!code || code === '000000') {
+      toast.error('验证码未就绪');
+      return;
+    }
+    copy(code);
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="group flex min-w-[140px] items-center gap-2 rounded-lg border border-primary/20 bg-white/90 px-2 py-2 text-left shadow-sm transition hover:border-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:border-emerald-900/40 dark:bg-slate-900/80 dark:hover:border-emerald-500/60 dark:hover:bg-slate-900/60"
+    >
+      <TotpRing progress={progress} />
+      <div className="flex flex-col leading-tight">
+        <span className="font-mono text-[13px] tracking-[0.35em] text-primary group-hover:text-primary-600 dark:text-emerald-300 dark:group-hover:text-emerald-200">
+          {formattedCode}
+        </span>
+        <span className="text-[10px] text-muted-foreground group-hover:text-primary/80 dark:group-hover:text-emerald-200">
+          {label}
+        </span>
+      </div>
+      {remaining !== null && (
+        <span className="ml-auto text-[10px] font-medium text-muted-foreground group-hover:text-primary/80 dark:group-hover:text-emerald-200">
+          {remaining}
+        </span>
+      )}
+    </button>
+  );
+}
+
+function formatTotpCode(code: string) {
+  const normalized = code?.trim();
+  if (!normalized || normalized.length < 6) return '—— ——';
+  return `${normalized.slice(0, 3)} ${normalized.slice(3)}`;
+}
+
+function formatRemaining(period: number, progress: number) {
+  if (!Number.isFinite(period) || period <= 0) return null;
+  const clampedProgress = Math.max(0, Math.min(progress, 0.999));
+  const remain = Math.max(0, Math.ceil((1 - clampedProgress) * period));
+  return `${remain.toString().padStart(2, '0')}s`;
 }

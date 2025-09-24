@@ -86,23 +86,27 @@ export function TotpRing({
 export function useTotp(input?: string) {
   const [code, setCode] = useState('000000');
   const [progress, setProgress] = useState(0);
+  const [period, setPeriod] = useState(30);
 
   useEffect(() => {
     let mounted = true;
     async function tick() {
-      const { secret, period, digits } = parseTotp(input);
-      if (!secret) {
+      const parsed = parseTotp(input);
+      if (!parsed.secret) {
         setCode('000000');
         setProgress(0);
+        setPeriod(parsed.period);
         return;
       }
+      const { secret, period: step, digits } = parsed;
       const now = Math.floor(Date.now() / 1000);
-      const counter = Math.floor(now / period);
-      const remain = period - (now % period);
+      const counter = Math.floor(now / step);
+      const remain = step - (now % step);
       const c = await generateTotp(secret, counter, digits);
       if (!mounted) return;
       setCode(c);
-      setProgress((period - remain) / period);
+      setProgress((step - remain) / step);
+      setPeriod(step);
     }
     tick();
     const timer = setInterval(tick, 1000);
@@ -112,7 +116,7 @@ export function useTotp(input?: string) {
     };
   }, [input]);
 
-  return { code, progress };
+  return { code, progress, period };
 }
 
 function parseTotp(input?: string): {

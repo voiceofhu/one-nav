@@ -1,6 +1,6 @@
 {
   "name": "one-nav",
-  "version": "25.0924.1629",
+  "version": "25.0924.1711",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -71,6 +71,7 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.3.1",
     "vaul": "^1.1.2",
+    "xlsx": "^0.18.5",
     "zod": "^4.1.5"
   },
   "devDependencies": {

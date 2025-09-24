@@ -4,11 +4,10 @@ import { type BookmarkNode } from '@/extension/data';
 import { type AccountCredential } from '@/extension/storage';
 import { useMemo } from 'react';
 
-import { AccountDisplayList } from './AccountDisplayList';
+import { AccountsSection } from './AccountsSection';
 import { BookmarkActions } from './BookmarkActions';
 import { BookmarkInfoSection } from './BookmarkInfoSection';
 import { BookmarkViewHeader } from './BookmarkViewHeader';
-import { SecurityCard } from './SecurityCard';
 
 interface BookmarkViewProps {
   node: BookmarkNode;
@@ -25,23 +24,30 @@ export function BookmarkView({
   onDelete,
   onClose,
 }: BookmarkViewProps) {
-  const primaryAccount = accounts[0];
   const updatedAt = node.dateGroupModified || node.dateAdded;
   const host = useMemo(() => getHost(node.url), [node.url]);
   const detailTitle = node.title?.trim() || host || '未命名书签';
+  const safeUrl = node.url || '';
 
   return (
-    <div className="mx-auto flex overflow-auto h-auto pb-6 w-full flex-col text-[12px] leading-snug text-foreground ">
+    <div className="mx-auto flex overflow-auto h-auto pb-6 w-full flex-col text-[12px] leading-snug text-foreground">
       <BookmarkViewHeader title={detailTitle} onEdit={onEdit} />
       <BookmarkInfoSection
         title={detailTitle}
-        url={node.url || ''}
+        url={safeUrl}
         updatedAt={updatedAt}
       />
-      <AccountDisplayList accounts={accounts} />
-      {primaryAccount && <SecurityCard account={primaryAccount} />}
+      <AccountsSection
+        editing={false}
+        accounts={accounts}
+        draftAccounts={accounts}
+        detailTitle={detailTitle}
+        url={safeUrl}
+        host={host}
+        updatedAt={updatedAt}
+      />
 
-      {/* <BookmarkActions onDelete={onDelete} onClose={onClose} /> */}
+      <BookmarkActions onDelete={onDelete} onClose={onClose} />
     </div>
   );
 }

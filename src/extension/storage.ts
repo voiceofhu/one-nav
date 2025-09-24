@@ -12,6 +12,8 @@ export type BookmarkMeta = {
   accounts: AccountCredential[];
 };
 
+export type BookmarkMetaMap = Record<string, BookmarkMeta>;
+
 type LocalStorageArea = {
   get: (
     keys: string[] | Record<string, unknown>,
@@ -57,4 +59,45 @@ export async function setBookmarkMeta(id: string, meta: BookmarkMeta) {
     });
   }
   localStorage.setItem(KEY_PREFIX + id, JSON.stringify(meta));
+}
+
+export async function getAllBookmarkMetas(): Promise<BookmarkMetaMap> {
+  const st = ensureChromeStorage();
+  if (st) {
+    return new Promise((resolve) => {
+      st.get({}, (items) => {
+        const output: BookmarkMetaMap = {};
+        for (const [key, value] of Object.entries(items ?? {})) {
+          if (!key.startsWith(KEY_PREFIX)) continue;
+          const id = key.slice(KEY_PREFIX.length);
+          if (!id) continue;
+          if (value && typeof value === 'object') {
+            output[id] = value as BookmarkMeta;
+          }
+        }
+        resolve(output);
+      });
+    });
+  }
+
+  const result: BookmarkMetaMap = {};
+  try {
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith(KEY_PREFIX)) continue;
+      const id = key.slice(KEY_PREFIX.length);
+      if (!id) continue;
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          result[id] = JSON.parse(raw) as BookmarkMeta;
+        }
+      } catch (error) {
+        console.warn('Failed to parse bookmark meta for export', error);
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to enumerate local bookmark metadata', error);
+  }
+  return result;
 }

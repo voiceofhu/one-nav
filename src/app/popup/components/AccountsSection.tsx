@@ -5,6 +5,7 @@ import { type AccountCredential } from '@/extension/storage';
 
 import { AccountCard, EditableAccountCard } from './AccountCards';
 import { BookmarkSection } from './BookmarkSection';
+import { SecurityCard } from './SecurityCard';
 
 interface AccountsSectionProps {
   editing: boolean;
@@ -14,9 +15,9 @@ interface AccountsSectionProps {
   url: string;
   host: string;
   updatedAt?: number;
-  onAddAccount: () => void;
-  onChangeAccount: (index: number, patch: Partial<AccountCredential>) => void;
-  onRemoveAccount: (index: number) => void;
+  onAddAccount?: () => void;
+  onChangeAccount?: (index: number, patch: Partial<AccountCredential>) => void;
+  onRemoveAccount?: (index: number) => void;
 }
 
 export function AccountsSection({
@@ -31,16 +32,13 @@ export function AccountsSection({
   onChangeAccount,
   onRemoveAccount,
 }: AccountsSectionProps) {
-  const displayAccounts = editing ? draftAccounts : accounts;
+  const subtitle =
+    !editing && accounts.length > 0
+      ? `共 ${accounts.length} 个账号`
+      : undefined;
 
   return (
-    <BookmarkSection
-      title={`账号信息(${
-        !editing && accounts.length > 0
-          ? `共 ${accounts.length} 个账号`
-          : undefined
-      })`}
-    >
+    <BookmarkSection title="账号信息" subtitle={subtitle}>
       {!editing ? (
         <div className="space-y-3">
           {accounts.length === 0 ? (
@@ -51,14 +49,16 @@ export function AccountsSection({
             </div>
           ) : (
             accounts.map((acc, index) => (
-              <AccountCard
-                key={`${acc.username}-${index}`}
-                account={acc}
-                title={detailTitle}
-                url={url}
-                host={host}
-                updatedAt={updatedAt}
-              />
+              <div key={`${acc.username}-${index}`} className="space-y-2">
+                <AccountCard
+                  account={acc}
+                  title={detailTitle}
+                  url={url}
+                  host={host}
+                  updatedAt={updatedAt}
+                />
+                <SecurityCard account={acc} />
+              </div>
             ))
           )}
         </div>
@@ -77,8 +77,8 @@ export function AccountsSection({
                 index={index}
                 account={acc}
                 host={host}
-                onChange={onChangeAccount}
-                onRemove={onRemoveAccount}
+                onChange={(i, patch) => onChangeAccount?.(i, patch)}
+                onRemove={(i) => onRemoveAccount?.(i)}
               />
             ))
           )}
@@ -86,7 +86,7 @@ export function AccountsSection({
             variant="outline"
             size="sm"
             className="w-full rounded-xl border border-dashed border-blue-300 bg-blue-50 py-3 text-[12px] font-medium text-blue-700 hover:bg-blue-100 hover:border-blue-400 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900"
-            onClick={onAddAccount}
+            onClick={() => onAddAccount?.()}
           >
             + 添加账号
           </Button>

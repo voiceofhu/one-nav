@@ -5,7 +5,7 @@ import { type AccountCredential, setBookmarkMeta } from '@/extension/storage';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 
-import { AccountEditList } from './AccountEditList';
+import { AccountsSection } from './AccountsSection';
 import { BookmarkEditForm } from './BookmarkEditForm';
 import { BookmarkEditHeader } from './BookmarkEditHeader';
 
@@ -36,7 +36,12 @@ export function BookmarkEdit({
   const [saving, setSaving] = useState(false);
 
   const detailTitle =
-    node.title?.trim() || getHostFromUrl(node.url) || '未命名书签';
+    draftTitle.trim() ||
+    node.title?.trim() ||
+    getHostFromUrl(node.url) ||
+    '未命名书签';
+  const host = getHostFromUrl(draftUrl || node.url);
+  const safeUrl = draftUrl.trim() || node.url || '';
 
   const updateDraftAccount = useCallback(
     (index: number, patch: Partial<AccountCredential>) => {
@@ -108,8 +113,14 @@ export function BookmarkEdit({
         onUrlChange={setDraftUrl}
       />
 
-      <AccountEditList
-        accounts={draftAccounts}
+      <AccountsSection
+        editing={true}
+        accounts={accounts}
+        draftAccounts={draftAccounts}
+        detailTitle={detailTitle}
+        url={safeUrl}
+        host={host}
+        updatedAt={node.dateGroupModified || node.dateAdded}
         onAddAccount={addDraftAccount}
         onChangeAccount={updateDraftAccount}
         onRemoveAccount={removeDraftAccount}
