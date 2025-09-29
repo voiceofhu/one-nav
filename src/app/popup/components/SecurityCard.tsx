@@ -13,14 +13,16 @@ export function SecurityCard({ account }: SecurityCardProps) {
     assessSecurityDetailed(account);
 
   return (
-    <div className={`mx-2 ${className}`}>
+    <div className={`${className}`}>
       <div className="flex items-start gap-3">
-        <div className="mt-0.5">{icon}</div>
+        <div className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-current/10 text-current/90">
+          {icon}
+        </div>
         <div className="min-w-0 flex-1">
-          <div className="text-[12px] font-semibold mb-1 flex items-center">
+          <div className="mb-1 flex items-center text-[12px] font-semibold">
             {title}
-            <div className="ml-2 flex items-center text-[10px] text-current/80">
-              <Star className="h-3 w-3 mr-1" fill="currentColor" />
+            <div className="ml-2 inline-flex items-center rounded-full bg-current/10 px-2 py-0.5 text-[10px] text-current/80">
+              <Star className="mr-1 h-3 w-3" fill="currentColor" />
               {score} 分
             </div>
           </div>
@@ -85,32 +87,32 @@ function assessSecurityDetailed(
     description = '请立即设置密码和二步验证以保护您的账户。';
     icon = <ShieldX className="h-4 w-4" />;
     className =
-      'rounded-2xl border border-rose-200/80 bg-gradient-to-br from-rose-50 to-rose-100/80 px-4 py-4 text-[11px] text-rose-800 backdrop-blur-sm dark:border-rose-700/60 dark:from-rose-950/80 dark:to-rose-900/60 dark:text-rose-100';
+      'rounded-2xl border border-rose-200/70 bg-white px-4 py-3 text-[11px] text-rose-700  dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-100';
   } else if (score >= 90) {
     title = '非常安全';
     description = '密码强度极高，并已启用二步验证，账户安全防护非常完善。';
     icon = <ShieldCheck className="h-4 w-4" />;
     className =
-      'rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 to-emerald-100/80 px-4 py-4 text-[11px] text-emerald-800 backdrop-blur-sm dark:border-emerald-700/60 dark:from-emerald-950/80 dark:to-emerald-900/60 dark:text-emerald-100';
+      'rounded-2xl border border-emerald-200/60 bg-white px-4 py-3 text-[11px] text-emerald-700  dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200';
   } else if (score >= 70) {
     title = '安全性很好';
     description = '已采取良好的安全措施，但仍有提升空间，例如增加密码复杂度。';
     icon = <ShieldCheck className="h-4 w-4" />;
     className =
-      'rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 to-emerald-100/80 px-4 py-4 text-[11px] text-emerald-800 backdrop-blur-sm dark:border-emerald-700/60 dark:from-emerald-950/80 dark:to-emerald-900/60 dark:text-emerald-100';
+      'rounded-2xl border border-emerald-200/60 bg-white px-4 py-3 text-[11px] text-emerald-700  dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200';
   } else if (score >= 40) {
     // 调整中等安全的分数范围
     title = '安全性一般';
     description = '建议同时使用强密码与二步验证来提升账户安全性。';
     icon = <ShieldAlert className="h-4 w-4" />;
     className =
-      'rounded-2xl border border-amber-200/80 bg-gradient-to-br from-amber-50 to-amber-100/80 px-4 py-4 text-[11px] text-amber-800 backdrop-blur-sm dark:border-amber-700/60 dark:from-amber-950/80 dark:to-amber-900/60 dark:text-amber-100';
+      'rounded-2xl border border-amber-200/70 bg-white px-4 py-3 text-[11px] text-amber-700  dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200';
   } else {
     title = '安全性较弱';
     description = '账户安全防护不足，存在较高风险，请尽快完善安全设置。';
     icon = <ShieldX className="h-4 w-4" />;
     className =
-      'rounded-2xl border border-rose-200/80 bg-gradient-to-br from-rose-50 to-rose-100/80 px-4 py-4 text-[11px] text-rose-800 backdrop-blur-sm dark:border-rose-700/60 dark:from-rose-950/80 dark:to-rose-900/60 dark:text-rose-100';
+      'rounded-2xl border border-rose-200/70 bg-white px-4 py-3 text-[11px] text-rose-700  dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-100';
   }
 
   return { score, title, description, className, icon };

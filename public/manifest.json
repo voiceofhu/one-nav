@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "OneNav - 书签管理与快速搜索",
-  "version": "25.0916.1844",
+  "version": "25.0929.2306",
   "description": "书签增删改查、排序、导入导出与快速搜索；并预留 SSH、脚本执行、2FA 等扩展能力。",
   "homepage_url": "https://onenav.h06i.com",
   "background": {

@@ -14,6 +14,7 @@ interface BookmarkEditProps {
   accounts: AccountCredential[];
   onSave: () => void;
   onCancel: () => void;
+  onDelete: () => void;
   onClose?: () => void;
 }
 
@@ -21,8 +22,9 @@ export function BookmarkEdit({
   node,
   accounts,
   onSave,
-  onCancel,
-  onClose,
+  onCancel: _onCancel,
+  onDelete,
+  onClose: _onClose,
 }: BookmarkEditProps) {
   const [draftTitle, setDraftTitle] = useState(node.title || '');
   const [draftUrl, setDraftUrl] = useState(node.url || '');
@@ -102,8 +104,7 @@ export function BookmarkEdit({
         title={detailTitle}
         saving={saving}
         onSave={handleSave}
-        onCancel={onCancel}
-        onClose={onClose}
+        onDelete={onDelete}
       />
 
       <BookmarkEditForm

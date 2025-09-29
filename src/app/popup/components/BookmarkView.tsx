@@ -5,7 +5,6 @@ import { type AccountCredential } from '@/extension/storage';
 import { useMemo } from 'react';
 
 import { AccountsSection } from './AccountsSection';
-import { BookmarkActions } from './BookmarkActions';
 import { BookmarkInfoSection } from './BookmarkInfoSection';
 import { BookmarkViewHeader } from './BookmarkViewHeader';
 
@@ -13,17 +12,9 @@ interface BookmarkViewProps {
   node: BookmarkNode;
   accounts: AccountCredential[];
   onEdit: () => void;
-  onDelete: () => void;
-  onClose?: () => void;
 }
 
-export function BookmarkView({
-  node,
-  accounts,
-  onEdit,
-  onDelete,
-  onClose,
-}: BookmarkViewProps) {
+export function BookmarkView({ node, accounts, onEdit }: BookmarkViewProps) {
   const updatedAt = node.dateGroupModified || node.dateAdded;
   const host = useMemo(() => getHost(node.url), [node.url]);
   const detailTitle = node.title?.trim() || host || '未命名书签';
@@ -46,8 +37,6 @@ export function BookmarkView({
         host={host}
         updatedAt={updatedAt}
       />
-
-      <BookmarkActions onDelete={onDelete} onClose={onClose} />
     </div>
   );
 }

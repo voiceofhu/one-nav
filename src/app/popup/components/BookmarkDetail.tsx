@@ -92,16 +92,11 @@ export function BookmarkDetail({
           accounts={accounts}
           onSave={handleSave}
           onCancel={cancelEditing}
-          onClose={onClose}
-        />
-      ) : (
-        <BookmarkView
-          node={node}
-          accounts={accounts}
-          onEdit={startEditing}
           onDelete={handleDelete}
           onClose={onClose}
         />
+      ) : (
+        <BookmarkView node={node} accounts={accounts} onEdit={startEditing} />
       )}
 
       <ConfirmDialog

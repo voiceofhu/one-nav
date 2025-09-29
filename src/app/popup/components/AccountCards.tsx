@@ -5,11 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { type AccountCredential } from '@/extension/storage';
 import { useCopy, usePaste } from '@/hooks/use-copy';
-import { Copy, Eye, EyeOff, Globe2, X } from 'lucide-react';
-import { useState } from 'react';
+import { Copy, X } from 'lucide-react';
+import { type ReactNode } from 'react';
 import { toast } from 'sonner';
 
-import { TotpDisplay } from './TotpDisplay';
+import { BookmarkAvatar } from './BookmarkAvatar';
+import { TotpDisplay, TotpRing, useTotp } from './TotpDisplay';
 
 /**
  * ------------------------------
@@ -38,13 +39,6 @@ export function AccountCard({
   host,
   updatedAt,
 }: AccountCardProps) {
-  const { copy } = useCopy();
-
-  function handleCopy(text: string) {
-    if (!text) return;
-    copy(text);
-  }
-
   const displayTitle =
     title ||
     account.label ||
@@ -52,35 +46,36 @@ export function AccountCard({
     '账号信息';
 
   return (
-    <div className="group rounded-2xl border border-border/60 bg-card/90 px-5 py-4 shadow-sm transition-all hover:shadow-md backdrop-blur-sm">
-      {/* 统一头部 */}
-      <AccountCardHeader
-        title={displayTitle}
-        host={host}
-        url={url}
-        updatedAt={updatedAt}
-      />
+    <div className="mt-4 overflow-hidden rounded-2xl border border-border/40  text-[12px]  dark:border-white/10 dark:bg-white/10">
+      <div className="divide-y divide-border/40 bg-transparent dark:divide-white/10">
+        <AccountFieldRow label="用户名" value={account.username} />
 
-      {/* 账号信息区域 */}
-      <div className="mt-4 space-y-3">
-        <AccountFieldRow
-          label="用户名"
-          value={account.username}
-          onCopy={() => handleCopy(account.username)}
-        />
-
-        <PasswordFieldRow
-          value={account.password}
-          onCopy={() => handleCopy(account.password)}
-        />
+        <PasswordFieldRow value={account.password} />
 
         <TotpFieldRow totp={account.totp} />
 
-        <AccountFieldRow
-          label="网站"
-          value={host}
-          onCopy={() => handleCopy(host)}
-        />
+        {/* <AccountFieldRow label="网站" value={host} /> */}
+
+        {/* <AccountFieldRow label="备注" value={account.label} /> */}
+      </div>
+    </div>
+  );
+}
+
+function DisplayRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-4 px-2 py-1 text-[12px]">
+      <span className="w-16 shrink-0 text-[11px] font-medium text-muted-foreground">
+        {label}
+      </span>
+      <div className="min-w-0 flex-1 flex justify-end items-center cursor-pointer">
+        {children}
       </div>
     </div>
   );
@@ -118,18 +113,18 @@ export function EditableAccountCard({
   }
 
   return (
-    <div className="rounded-2xl border border-primary/20 bg-card/90 px-5 py-4 shadow-sm backdrop-blur-sm transition-all hover:shadow-md">
+    <div className="rounded-2xl border border-border/50 bg-background px-3 py-2 ">
       {/* 编辑状态头部 */}
-      <EditableCardHeader index={index} onRemove={() => onRemove(index)} />
+      {/* <EditableCardHeader index={index} onRemove={() => onRemove(index)} /> */}
 
       {/* 编辑字段区域 */}
       <div className="mt-4 space-y-3">
-        <EditableFieldRow
+        {/* <EditableFieldRow
           label="显示名称"
           value={account.label || ''}
           placeholder="可选：例如主账号"
           onChange={(v: string) => onChange(index, { label: v })}
-        />
+        /> */}
 
         <EditableFieldRow
           label="用户名"
@@ -150,13 +145,17 @@ export function EditableAccountCard({
 
         <EditableTotpField
           value={account.totp || ''}
-          onChange={(v) => onChange(index, { totp: v })}
+          onChange={(v) => v && onChange(index, { totp: v })}
           onPaste={pasteTotp}
           onCopy={() => handleCopy(account.totp || '')}
           isPasting={isPasting}
         />
-
-        <FieldRow label="网站" value={host || '—'} readOnly />
+        <div>
+          <Button onClick={(v) => onChange(index, { totp: '' })} variant="link">
+            删除验证码
+          </Button>
+        </div>
+        {/* <FieldRow label="网站" value={host || '—'} readOnly /> */}
       </div>
     </div>
   );
@@ -181,130 +180,126 @@ function AccountCardHeader({
   updatedAt?: number;
 }) {
   return (
-    <div className="flex items-start justify-between gap-3">
+    <div className="flex items-center gap-3">
+      <BookmarkAvatar
+        url={url}
+        title={title}
+        size={52}
+        className="rounded-2xl shadow-sm"
+      />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[14px] font-semibold tracking-tight text-foreground">
+        <div className="truncate text-[14px] font-semibold text-foreground">
           {title}
         </div>
-        <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
-          <span>{host}</span>
-          {updatedAt && (
-            <>
-              <span>•</span>
-              <span>{formatDate(updatedAt)}</span>
-            </>
-          )}
-        </div>
+        <div className="mt-1 text-[11px] text-muted-foreground">{host}</div>
+        {updatedAt ? (
+          <div className="mt-0.5 text-[10px] text-muted-foreground/80">
+            上次修改时间：{formatDate(updatedAt)}
+          </div>
+        ) : null}
       </div>
-      {url && (
-        <a
-          href={url}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-transparent px-2.5 py-1.5 text-[11px] text-primary transition-colors hover:border-primary/30 hover:bg-primary/10"
-          target="_blank"
-          rel="noreferrer"
-          title="打开网站"
-        >
-          <Globe2 className="h-3.5 w-3.5" />
-          打开
-        </a>
-      )}
     </div>
   );
 }
 
 // 普通字段行
-function AccountFieldRow({
-  label,
-  value,
-  onCopy,
-}: {
-  label: string;
-  value?: string;
-  onCopy?: () => void;
-}) {
-  const displayValue = value || '—';
-  const isEmpty = !value;
+function AccountFieldRow({ label, value }: { label: string; value?: string }) {
+  const { copy } = useCopy();
+  const displayValue = value?.trim();
+  const isEmpty = !displayValue;
 
   return (
-    <FieldRow label={label}>
-      <div
-        className={`group flex items-center justify-between rounded-xl px-3 py-2.5 text-[12px] transition-all ${
-          isEmpty
-            ? 'bg-muted/30 text-muted-foreground cursor-default'
-            : 'bg-muted/40 text-foreground cursor-pointer hover:bg-background/70 hover:shadow-sm active:scale-[0.995]'
-        }`}
-        onClick={isEmpty ? undefined : onCopy}
-        title={isEmpty ? undefined : '点击复制'}
-        role={isEmpty ? undefined : 'button'}
-      >
-        <span className="truncate">{displayValue}</span>
-        {!isEmpty && (
-          <Copy className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-        )}
-      </div>
-    </FieldRow>
+    <DisplayRow label={label}>
+      {isEmpty ? (
+        <div className="inline-flex w-full items-center justify-end rounded-lg bg-muted/10 px-2 py-1 text-muted-foreground">
+          —
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => displayValue && copy(displayValue)}
+          className="group inline-flex  items-center justify-end rounded-lg border border-transparent hover:bg-white px-3 py-2 text-left font-medium text-foreground transition-colors hover:border-muted/50  dark:bg-white/10"
+          title="点击复制"
+        >
+          <span className="truncate text-right">{displayValue}</span>
+          {/* <Copy className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" /> */}
+        </button>
+      )}
+    </DisplayRow>
   );
 }
 
 // 密码字段行
-function PasswordFieldRow({
-  value,
-  onCopy,
-}: {
-  value?: string;
-  onCopy?: () => void;
-}) {
-  const [showPassword, setShowPassword] = useState(false);
-  const isEmpty = !value;
-  const displayValue = isEmpty
-    ? '—'
-    : showPassword
-      ? value
-      : maskPassword(value);
+function PasswordFieldRow({ value }: { value?: string }) {
+  const { copy } = useCopy();
+  const password = value?.trim();
+  const isEmpty = !password;
+  const masked = maskPassword(password);
 
   return (
-    <FieldRow label="密码">
-      <div className="group flex items-center gap-2">
-        <div
-          className={`flex-1 rounded-xl px-3 py-2.5 font-mono text-[12px] transition-all ${
-            isEmpty
-              ? 'bg-muted/30 text-muted-foreground cursor-default'
-              : 'bg-muted/40 text-foreground cursor-pointer hover:bg-background/70 hover:shadow-sm active:scale-[0.995]'
-          }`}
-          onClick={isEmpty ? undefined : onCopy}
-          title={isEmpty ? undefined : '点击复制密码'}
-          role={isEmpty ? undefined : 'button'}
-        >
-          {displayValue}
+    <DisplayRow label="密码">
+      {isEmpty ? (
+        <div className="inline-flex w-full items-center justify-end rounded-lg bg-muted/10 px-3 py-2 text-muted-foreground">
+          —
         </div>
-        {!isEmpty && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 px-2 text-[10px] text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground"
-            onClick={() => setShowPassword((v) => !v)}
-            title={showPassword ? '隐藏密码' : '显示密码'}
-          >
-            {showPassword ? (
-              <EyeOff className="h-3.5 w-3.5" />
-            ) : (
-              <Eye className="h-3.5 w-3.5" />
-            )}
-          </Button>
-        )}
-      </div>
-    </FieldRow>
+      ) : (
+        <button
+          type="button"
+          onClick={() => password && copy(password)}
+          className="group inline-flex w-fit items-center cursor-pointer justify-between rounded-lg  hover:bg-white px-3 py-2 font-mono text-[12px]  transition-colors hover:border-primary/40  dark:bg-white/10"
+          title="点击复制密码"
+        >
+          <span className="truncate text-right">
+            <span className="group-hover:hidden">{masked}</span>
+            <span className="hidden group-hover:inline">{password}</span>
+          </span>
+          {/* <Copy className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" /> */}
+        </button>
+      )}
+    </DisplayRow>
   );
 }
 
 // TOTP 字段行
 function TotpFieldRow({ totp }: { totp?: string }) {
+  const { copy } = useCopy();
+  const { code, progress, period } = useTotp(totp);
+
+  if (!totp) {
+    return null;
+  }
+
+  const ready = Boolean(code && code !== '000000');
+  const secondsLeft = Math.max(0, Math.ceil((1 - progress) * period));
+  const formattedCode = ready
+    ? `${code.slice(0, 3)} ${code.slice(3)}`
+    : '生成中';
+
   return (
-    <FieldRow label="验证码">
-      <div className="rounded-xl bg-muted/40 px-3 py-2.5">
-        <TotpDisplay totp={totp} />
-      </div>
-    </FieldRow>
+    <DisplayRow label="验证码">
+      <button
+        type="button"
+        onClick={() => {
+          if (!ready) return;
+          copy(code);
+        }}
+        disabled={!ready}
+        className={`group inline-flex w-fit items-center justify-between rounded-lg  px-3 py-2 hover:bg-white cursor-pointer font-mono text-[12px]  transition-colors ${
+          ready
+            ? ''
+            : 'cursor-not-allowed border-transparent bg-muted/10 text-muted-foreground'
+        }`}
+        title={ready ? '点击复制验证码' : '正在生成验证码'}
+      >
+        <div className="flex items-center gap-2">
+          <TotpRing progress={progress} compact />
+          <span className="tracking-widest">{formattedCode}</span>
+        </div>
+        {/* <span className="tabular-nums text-[10px] text-muted-foreground group-hover:text-foreground">
+          {secondsLeft}s
+        </span> */}
+      </button>
+    </DisplayRow>
   );
 }
 
@@ -396,7 +391,7 @@ function EditableTotpField({
         value ? (
           <div className="flex items-center gap-1">
             <TotpDisplay totp={value} compact />
-            {onCopy && (
+            {/* {onCopy && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -406,8 +401,8 @@ function EditableTotpField({
               >
                 <Copy className="h-3 w-3" />
               </Button>
-            )}
-            <Button
+            )} */}
+            {/* <Button
               variant="ghost"
               size="sm"
               className="h-7 px-2 text-[10px] text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
@@ -415,7 +410,7 @@ function EditableTotpField({
               title="清空"
             >
               <X className="h-3 w-3" />
-            </Button>
+            </Button> */}
           </div>
         ) : (
           <Button
@@ -496,7 +491,7 @@ function formatDate(ts?: number) {
     const m = `${d.getMonth() + 1}`.padStart(2, '0');
     const day = `${d.getDate()}`.padStart(2, '0');
     return `${y}/${m}/${day}`;
-  } catch (e) {
+  } catch {
     return '';
   }
 }

@@ -34,17 +34,26 @@ export function BookmarkAvatar({
     return getFaviconCandidates(url);
   }, [url, builtInIcon?.skipFavicon]);
   const [candidateIndex, setCandidateIndex] = useState(0);
+  const [useFallbackIcon, setUseFallbackIcon] = useState(false);
 
   useEffect(() => {
     setCandidateIndex(0);
+    setUseFallbackIcon(false);
   }, [url]);
 
   const handleError = () => {
-    setCandidateIndex((prev) =>
-      prev + 1 < iconCandidates.length ? prev + 1 : prev,
-    );
+    setCandidateIndex((prev) => {
+      const nextIndex = prev + 1;
+      if (nextIndex < iconCandidates.length) {
+        return nextIndex;
+      }
+      setUseFallbackIcon(true);
+      return prev;
+    });
   };
-  const resolvedSrc = iconCandidates[candidateIndex] ?? undefined;
+  const resolvedSrc = useFallbackIcon
+    ? undefined
+    : (iconCandidates[candidateIndex] ?? undefined);
   const initials = (title?.trim()?.[0] || 'B').toUpperCase();
   const baseWrapperClass =
     'flex shrink-0 items-center justify-center rounded-xl shadow-sm';

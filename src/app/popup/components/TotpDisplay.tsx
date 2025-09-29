@@ -45,7 +45,7 @@ export function TotpDisplay({
           {code.slice(0, 3)} {code.slice(3)}
         </span>
       </div>
-      <Button
+      {/* <Button
         variant="ghost"
         size="icon"
         className={`rounded-md text-muted-foreground hover:text-foreground ${
@@ -54,7 +54,7 @@ export function TotpDisplay({
         onClick={handleCopy}
       >
         <Copy className={compact ? 'h-2.5 w-2.5' : 'h-3 w-3'} />
-      </Button>
+      </Button> */}
     </div>
   );
 }
@@ -83,6 +83,18 @@ export function TotpRing({
   );
 }
 
+type SubtleLike = {
+  importKey: SubtleCrypto['importKey'];
+  sign: SubtleCrypto['sign'];
+};
+
+function resolveSubtleCrypto(): SubtleLike | null {
+  if (typeof globalThis === 'undefined') return null;
+  const maybeCrypto = (globalThis as { crypto?: Crypto }).crypto;
+  if (maybeCrypto?.subtle) return maybeCrypto.subtle;
+  return null;
+}
+
 export function useTotp(input?: string) {
   const [code, setCode] = useState('000000');
   const [progress, setProgress] = useState(0);
@@ -98,11 +110,18 @@ export function useTotp(input?: string) {
         setPeriod(parsed.period);
         return;
       }
+      const subtle = resolveSubtleCrypto();
+      if (!subtle) {
+        setCode('000000');
+        setProgress(0);
+        setPeriod(parsed.period);
+        return;
+      }
       const { secret, period: step, digits } = parsed;
       const now = Math.floor(Date.now() / 1000);
       const counter = Math.floor(now / step);
       const remain = step - (now % step);
-      const c = await generateTotp(secret, counter, digits);
+      const c = await generateTotp(subtle, secret, counter, digits);
       if (!mounted) return;
       setCode(c);
       setProgress((step - remain) / step);
@@ -144,6 +163,7 @@ function parseTotp(input?: string): {
 }
 
 async function generateTotp(
+  subtle: SubtleLike,
   secretBase32: string,
   counter: number,
   digits: number,
@@ -154,7 +174,7 @@ async function generateTotp(
     counterBytes[i] = counter & 0xff;
     counter = Math.floor(counter / 256);
   }
-  const cryptoKey = await crypto.subtle.importKey(
+  const cryptoKey = await subtle.importKey(
     'raw',
     key.buffer as ArrayBuffer,
     { name: 'HMAC', hash: 'SHA-1' },
@@ -162,7 +182,7 @@ async function generateTotp(
     ['sign'],
   );
   const hmac = new Uint8Array(
-    await crypto.subtle.sign('HMAC', cryptoKey, counterBytes),
+    await subtle.sign('HMAC', cryptoKey, counterBytes),
   );
   const offset = hmac[hmac.length - 1] & 0x0f;
   const bin =

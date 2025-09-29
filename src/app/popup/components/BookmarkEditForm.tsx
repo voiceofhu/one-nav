@@ -2,6 +2,7 @@
 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 interface BookmarkEditFormProps {
   title: string;
@@ -35,13 +36,13 @@ export function BookmarkEditForm({
         <Label htmlFor="bookmark-url" className="text-xs font-medium">
           网址
         </Label>
-        <Input
+        <Textarea
           id="bookmark-url"
           value={url}
           onChange={(e) => onUrlChange(e.target.value)}
-          placeholder="https://example.com"
+          placeholder="https://example.com or javascript:"
           className="h-9 text-sm"
-          type="url"
+          rows={2}
         />
       </div>
     </div>

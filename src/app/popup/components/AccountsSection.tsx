@@ -38,7 +38,11 @@ export function AccountsSection({
       : undefined;
 
   return (
-    <BookmarkSection title="账号信息" subtitle={subtitle}>
+    <BookmarkSection
+      className="!p-0 !bg-transparent border-none"
+      title="账号信息"
+      subtitle={subtitle}
+    >
       {!editing ? (
         <div className="space-y-3">
           {accounts.length === 0 ? (

@@ -1,5 +1,6 @@
 'use client';
 
+import { getPopupStateParams, setPopupStateParams } from '@/extension/storage';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   type PropsWithChildren,
@@ -44,11 +45,46 @@ export function PopupStateProvider({ children }: PropsWithChildren) {
   const [localParams, setLocalParams] = useState<URLSearchParams>(
     () => new URLSearchParams(paramsString),
   );
+  const [hasLoadedPersistentState, setHasLoadedPersistentState] =
+    useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     setShouldSyncUrl(window.location.protocol !== 'chrome-extension:');
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.location.protocol !== 'chrome-extension:') {
+      setHasLoadedPersistentState(true);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const stored = await getPopupStateParams();
+        if (cancelled) return;
+        if (stored && !paramsString) {
+          setLocalParams(new URLSearchParams(stored));
+        }
+      } finally {
+        if (!cancelled) {
+          setHasLoadedPersistentState(true);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [paramsString]);
+
+  useEffect(() => {
+    if (!hasLoadedPersistentState) return;
+    if (typeof window === 'undefined') return;
+    if (window.location.protocol !== 'chrome-extension:') return;
+    const snapshot = localParams.toString();
+    void setPopupStateParams(snapshot || null);
+  }, [localParams, hasLoadedPersistentState]);
 
   useEffect(() => {
     if (shouldSyncUrl) {
